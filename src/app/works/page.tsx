@@ -21,7 +21,7 @@ export default function WorksPage() {
       <div className="max-w-6xl mx-auto">
         {/* 페이지 제목 */}
         <div className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">저작물 관리</h2>
+          <h2 className="text-2xl font-bold text-gray-900">검사하기</h2>
         </div>
 
         {/* 카드 그리드 */}
@@ -46,16 +46,19 @@ export default function WorksPage() {
               onClick={() => router.push(`/works/${contract.id}`)}
               className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition p-5 text-left cursor-pointer"
             >
-              {/* 상단: 아이콘 + 계약서명 */}
+              {/* 상단: 아이콘 + 검사명칭 */}
               <div className="flex items-start gap-3 mb-3">
                 <div className="w-9 h-9 rounded bg-gray-100 flex items-center justify-center flex-shrink-0 mt-0.5">
                   <FileText className="w-4.5 h-4.5 text-gray-500" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-gray-900 truncate">
-                    {contract.is_institution_made
-                      ? "기관 자체 제작물"
-                      : contract.contract_filename ?? "(파일 없음)"}
+                    {contract.inspection_title
+                      ?? (contract.contract_filename
+                        ? (contract.contract_filename.length > 20
+                          ? contract.contract_filename.slice(0, 20) + "..."
+                          : contract.contract_filename)
+                        : "(파일 없음)")}
                   </p>
                 </div>
               </div>

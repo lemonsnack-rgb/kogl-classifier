@@ -64,6 +64,7 @@ export interface Contract {
   user_id: string
   contract_file_url: string | null
   contract_filename: string | null
+  inspection_title: string | null
   is_institution_made: boolean
   gongnuri_type: KoglType | null
   gongnuri_confidence: number | null
@@ -217,10 +218,10 @@ export const STATUS_META: Record<
   ContractStatus,
   { label: string; color: string }
 > = {
-  uploaded: { label: "업로드됨", color: "#6B7280" },
-  ocr_processing: { label: "OCR 처리중", color: "#3B82F6" },
-  classifying: { label: "분류중", color: "#3B82F6" },
-  review_required: { label: "검토 필요", color: "#F59E0B" },
-  completed: { label: "완료", color: "#10B981" },
-  failed: { label: "실패", color: "#EF4444" },
+  uploaded: { label: "검사중", color: "#3B82F6" },
+  ocr_processing: { label: "검사중", color: "#3B82F6" },
+  classifying: { label: "검사중", color: "#3B82F6" },
+  review_required: { label: "검사대기", color: "#F59E0B" },
+  completed: { label: "검사완료", color: "#10B981" },
+  failed: { label: "검사불가", color: "#EF4444" },
 }

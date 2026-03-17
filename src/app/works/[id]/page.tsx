@@ -26,12 +26,6 @@ const CLAUSE_TYPE_LABELS: Record<ClauseType, string> = {
   ATTRIBUTION: "출처표시",
 }
 
-const BASIS_LABELS: Record<string, string> = {
-  CONTRACT: "계약서 기반 자동 분류",
-  AI: "AI 자동 분류",
-  MANUAL: "수동 분류",
-}
-
 const WORK_TYPE_LABELS: Record<string, string> = {
   image: "이미지",
   text: "텍스트",
@@ -173,6 +167,13 @@ export default function WorkDetailPage() {
           </Link>
         </div>
 
+        {/* ======== 검사제목 ======== */}
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">
+          {contract.inspection_title
+            ?? contract.contract_filename
+            ?? "검사 결과"}
+        </h1>
+
         {/* ======== 계약서 정보 카드 ======== */}
         <section className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
@@ -228,24 +229,26 @@ export default function WorkDetailPage() {
 
           {contract.gongnuri_type ? (
             <>
-              {/* KOGL 유형 이미지 + 뱃지 + 신뢰도 + 판정근거 */}
-              <div className="flex flex-wrap items-start gap-6 mb-6">
-                {/* 공공누리마크 이미지 + 큰 뱃지 */}
-                <div className="flex flex-col items-center gap-2">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={getKoglImageSrc(contract.gongnuri_type)}
-                    alt={`공공누리 ${KOGL_TYPES[contract.gongnuri_type].label}`}
-                    className="h-[60px] w-auto object-contain rounded"
-                  />
-                  <KoglBadgeLarge type={contract.gongnuri_type} />
-                  <span className="text-xs text-gray-500">
-                    {KOGL_TYPES[contract.gongnuri_type].description}
-                  </span>
-                </div>
+              {/* KOGL 유형 이미지 + 유형명/설명/신뢰도 수평 배치 */}
+              <div className="flex items-start gap-6 mb-6">
+                {/* 공공누리마크 이미지 (좌측 크게) */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={getKoglImageSrc(contract.gongnuri_type)}
+                  alt={`공공누리 ${KOGL_TYPES[contract.gongnuri_type].label}`}
+                  className="h-[80px] w-auto object-contain rounded flex-shrink-0"
+                />
 
-                {/* 신뢰도 */}
-                <div className="flex-1 min-w-[200px]">
+                {/* 우측: 유형명 + 설명 + 신뢰도 */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 mb-1">
+                    <KoglBadgeLarge type={contract.gongnuri_type} />
+                  </div>
+                  <p className="text-sm text-gray-600 mb-3">
+                    {KOGL_TYPES[contract.gongnuri_type].description}
+                  </p>
+
+                  {/* 신뢰도 */}
                   <p className="text-xs text-gray-500 mb-1.5">신뢰도</p>
                   <div className="flex items-center gap-3">
                     <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
@@ -293,16 +296,6 @@ export default function WorkDetailPage() {
                       ))}
                     </div>
                   )}
-                </div>
-
-                {/* 판정근거 */}
-                <div>
-                  <p className="text-xs text-gray-500 mb-1.5">판정 근거</p>
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700">
-                    {BASIS_LABELS[contract.classification_basis ?? ""] ??
-                      contract.classification_basis ??
-                      "-"}
-                  </span>
                 </div>
               </div>
 
