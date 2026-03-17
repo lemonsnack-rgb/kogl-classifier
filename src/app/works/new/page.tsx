@@ -21,7 +21,7 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-export default function UploadPage() {
+export default function WorksNewPage() {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [isInstitutionMade, setIsInstitutionMade] = useState(false)
@@ -108,7 +108,7 @@ export default function UploadPage() {
     setIsSubmitting(true)
     // Mock 처리 시뮬레이션
     await new Promise((resolve) => setTimeout(resolve, 1500))
-    router.push("/results")
+    router.push("/works")
   }
 
   // ========================================

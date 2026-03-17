@@ -7,6 +7,14 @@ import AppLayout from "@/components/layout/AppLayout"
 import { getContractById } from "@/lib/mock/data"
 import { KOGL_TYPES, STATUS_META } from "@/types"
 import type { KoglType, ContractStatus, ClauseType, Work } from "@/types"
+import {
+  Download,
+  ChevronDown,
+  ChevronRight,
+  ArrowLeft,
+  Edit,
+  FileText,
+} from "lucide-react"
 
 const CLAUSE_TYPE_LABELS: Record<ClauseType, string> = {
   OWNERSHIP: "소유권/귀속",
@@ -23,20 +31,107 @@ const BASIS_LABELS: Record<string, string> = {
   MANUAL: "수동 분류",
 }
 
+const WORK_TYPE_LABELS: Record<string, string> = {
+  image: "이미지",
+  text: "텍스트",
+  audio: "오디오",
+  video: "영상",
+}
+
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 }
 
-export default function ResultDetailPage() {
+/** KOGL 유형 문자열에서 이미지 번호 추출 */
+function getKoglImageSrc(type: KoglType): string {
+  const num = type.replace("KOGL-", "")
+  return `/images/kogl/type${num}.jpg`
+}
+
+/** CSV 다운로드 유틸 */
+function downloadCsv(works: Work[], contractFilename: string | null) {
+  const headers = [
+    "저작물명",
+    "유형",
+    "디지털화형태",
+    "설명",
+    "주제어",
+    "언어",
+    "제작일",
+    "계약서",
+    "저작권자",
+    "공동저작자",
+    "저작인접권자",
+    "공개유형",
+    "저작물성",
+    "비보호저작물",
+    "업무상저작물",
+    "상업적이용허락",
+    "저작재산권",
+    "공동저작자동의",
+    "유효기간",
+    "초상권",
+  ]
+
+  const rows = works.map((w) => [
+    w.work_name ?? "",
+    w.work_type ? (WORK_TYPE_LABELS[w.work_type] ?? w.work_type) : "",
+    w.digital_format ?? "",
+    w.description ?? "",
+    w.keywords?.join(", ") ?? "",
+    w.language ?? "",
+    w.created_date ?? "",
+    contractFilename ?? "",
+    w.creator ?? "",
+    "", // 공동저작자 - 현재 데이터 없음
+    "", // 저작인접권자 - 현재 데이터 없음
+    "", // 공개유형
+    "", // 저작물성
+    "", // 비보호저작물
+    "", // 업무상저작물
+    w.usage_scope ?? "", // 상업적이용허락
+    w.copyright_period ?? "", // 저작재산권
+    w.contract_metadata?.consent_status ?? "", // 공동저작자동의
+    w.copyright_period ?? "", // 유효기간
+    "", // 초상권
+  ])
+
+  // BOM + CSV
+  const BOM = "\uFEFF"
+  const csvContent =
+    BOM +
+    [headers, ...rows]
+      .map((row) =>
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")
+      )
+      .join("\n")
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = `메타데이터_${new Date().toISOString().slice(0, 10)}.csv`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+function handleFileDownload() {
+  alert("다운로드 기능은 Supabase Storage 연동 후 사용 가능합니다")
+}
+
+export default function WorkDetailPage() {
   const params = useParams()
   const router = useRouter()
   const id = params.id as string
   const contract = getContractById(id)
 
-  const [openAccordions, setOpenAccordions] = useState<Record<number, boolean>>(
-    { 0: true }
-  )
+  // 모든 아코디언 접힌 상태로 시작
+  const [openAccordions, setOpenAccordions] = useState<
+    Record<number, boolean>
+  >({})
 
   if (!contract) {
     return (
@@ -45,7 +140,7 @@ export default function ResultDetailPage() {
           <div className="text-center py-20">
             <p className="text-gray-400 text-lg">데이터가 없습니다.</p>
             <Link
-              href="/results"
+              href="/works"
               className="mt-4 inline-block text-primary-600 text-sm hover:underline"
             >
               목록으로 돌아가기
@@ -66,26 +161,23 @@ export default function ResultDetailPage() {
   return (
     <AppLayout>
       <div className="max-w-5xl mx-auto">
-        {/* 뒤로가기 */}
-        <Link
-          href="/results"
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-5"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+        {/* 뒤로가기 + 수정 버튼 */}
+        <div className="flex items-center justify-between mb-5">
+          <Link
+            href="/works"
+            className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 19l-7-7 7-7"
-            />
-          </svg>
-          목록으로
-        </Link>
+            <ArrowLeft className="w-4 h-4" />
+            목록으로
+          </Link>
+          <Link
+            href={`/works/${id}/edit`}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary-600 border border-primary-200 rounded-md hover:bg-primary-50 transition-colors"
+          >
+            <Edit className="w-3.5 h-3.5" />
+            수정
+          </Link>
+        </div>
 
         {/* ======== 계약서 정보 카드 ======== */}
         <section className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 mb-6">
@@ -95,15 +187,28 @@ export default function ResultDetailPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-6 text-sm">
             <InfoField
               label="파일명"
-              value={contract.contract_filename ?? "(파일 없음)"}
+              value={
+                contract.contract_filename ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    {contract.contract_filename}
+                    <button
+                      onClick={handleFileDownload}
+                      className="text-gray-400 hover:text-primary-600 transition-colors"
+                      title="다운로드"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </button>
+                  </span>
+                ) : (
+                  "(파일 없음)"
+                )
+              }
             />
             <InfoField label="등록일" value={formatDate(contract.created_at)} />
             <InfoField label="등록자" value="홍길동 (mock)" />
             <InfoField
               label="상태"
-              value={
-                <StatusBadge status={contract.status} />
-              }
+              value={<StatusBadge status={contract.status} />}
             />
             <InfoField
               label="자체제작 여부"
@@ -119,32 +224,26 @@ export default function ResultDetailPage() {
               공공누리 유형 분류 결과
             </h2>
             <Link
-              href={`/results/${id}/edit`}
+              href={`/works/${id}/edit`}
               className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-primary-600 border border-primary-200 rounded-md hover:bg-primary-50 transition-colors"
             >
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                />
-              </svg>
+              <Edit className="w-3.5 h-3.5" />
               수정
             </Link>
           </div>
 
           {contract.gongnuri_type ? (
             <>
-              {/* KOGL 유형 뱃지 + 신뢰도 + 판정근거 */}
+              {/* KOGL 유형 이미지 + 뱃지 + 신뢰도 + 판정근거 */}
               <div className="flex flex-wrap items-start gap-6 mb-6">
-                {/* 큰 뱃지 */}
+                {/* 공공누리마크 이미지 + 큰 뱃지 */}
                 <div className="flex flex-col items-center gap-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={getKoglImageSrc(contract.gongnuri_type)}
+                    alt={`공공누리 ${KOGL_TYPES[contract.gongnuri_type].label}`}
+                    className="h-[60px] w-auto object-contain rounded"
+                  />
                   <KoglBadgeLarge type={contract.gongnuri_type} />
                   <span className="text-xs text-gray-500">
                     {KOGL_TYPES[contract.gongnuri_type].description}
@@ -217,19 +316,7 @@ export default function ResultDetailPage() {
               {clauses.length > 0 && (
                 <div>
                   <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
-                    <svg
-                      className="w-4 h-4 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                      />
-                    </svg>
+                    <FileText className="w-4 h-4 text-gray-400" />
                     판단 근거 조항
                   </h3>
                   <div className="space-y-4">
@@ -287,25 +374,25 @@ export default function ResultDetailPage() {
                 ({works.length}건)
               </span>
             </h2>
-            <Link
-              href={`/results/${id}/edit`}
-              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-primary-600 border border-primary-200 rounded-md hover:bg-primary-50 transition-colors"
-            >
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            <div className="flex items-center gap-2">
+              {/* 엑셀 다운로드 버튼 */}
+              <button
+                onClick={() =>
+                  downloadCsv(works, contract.contract_filename)
+                }
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                />
-              </svg>
-              수정
-            </Link>
+                <Download className="w-3.5 h-3.5" />
+                엑셀 다운로드
+              </button>
+              <Link
+                href={`/works/${id}/edit`}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-primary-600 border border-primary-200 rounded-md hover:bg-primary-50 transition-colors"
+              >
+                <Edit className="w-3.5 h-3.5" />
+                수정
+              </Link>
+            </div>
           </div>
 
           {works.length === 0 ? (
@@ -316,6 +403,7 @@ export default function ResultDetailPage() {
                 <WorkAccordion
                   key={work.id}
                   work={work}
+                  contractFilename={contract.contract_filename}
                   index={idx}
                   isOpen={!!openAccordions[idx]}
                   onToggle={() => toggleAccordion(idx)}
@@ -379,20 +467,28 @@ function StatusBadge({ status }: { status: ContractStatus }) {
   )
 }
 
-const WORK_TYPE_LABELS: Record<string, string> = {
-  image: "이미지",
-  text: "텍스트",
-  audio: "오디오",
-  video: "영상",
+/** 값이 없으면 회색 "미식별" 표시 */
+function MetaValue({ value }: { value: React.ReactNode }) {
+  if (
+    value === null ||
+    value === undefined ||
+    value === "" ||
+    value === "-"
+  ) {
+    return <span className="text-gray-400 italic">미식별</span>
+  }
+  return <>{value}</>
 }
 
 function WorkAccordion({
   work,
+  contractFilename,
   index,
   isOpen,
   onToggle,
 }: {
   work: Work
+  contractFilename: string | null
   index: number
   isOpen: boolean
   onToggle: () => void
@@ -417,20 +513,22 @@ function WorkAccordion({
               {WORK_TYPE_LABELS[work.work_type] ?? work.work_type}
             </span>
           )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              handleFileDownload()
+            }}
+            className="text-gray-400 hover:text-primary-600 transition-colors"
+            title="파일 다운로드"
+          >
+            <Download className="w-3.5 h-3.5" />
+          </button>
         </div>
-        <svg
-          className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
+        {isOpen ? (
+          <ChevronDown className="w-4 h-4 text-gray-400" />
+        ) : (
+          <ChevronRight className="w-4 h-4 text-gray-400" />
+        )}
       </button>
 
       {/* 본문 */}
@@ -444,23 +542,27 @@ function WorkAccordion({
             <div className="grid grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-6">
               <InfoField
                 label="저작물명"
-                value={work.work_name ?? "-"}
+                value={<MetaValue value={work.work_name} />}
               />
               <InfoField
                 label="유형"
                 value={
-                  work.work_type
-                    ? WORK_TYPE_LABELS[work.work_type] ?? work.work_type
-                    : "-"
+                  <MetaValue
+                    value={
+                      work.work_type
+                        ? (WORK_TYPE_LABELS[work.work_type] ?? work.work_type)
+                        : null
+                    }
+                  />
                 }
               />
               <InfoField
-                label="디지털화 형태"
-                value={work.digital_format ?? "-"}
+                label="디지털화형태"
+                value={<MetaValue value={work.digital_format} />}
               />
               <InfoField
                 label="설명"
-                value={work.description ?? "-"}
+                value={<MetaValue value={work.description} />}
               />
               <InfoField
                 label="주제어"
@@ -472,21 +574,63 @@ function WorkAccordion({
                           key={kw}
                           className="inline-flex px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-xs"
                         >
-                          {kw}
+                          #{kw}
                         </span>
                       ))}
                     </div>
                   ) : (
-                    "-"
+                    <MetaValue value={null} />
                   )
                 }
               />
-              <InfoField label="언어" value={work.language ?? "-"} />
+              <InfoField
+                label="언어"
+                value={<MetaValue value={work.language} />}
+              />
               <InfoField
                 label="제작일"
-                value={work.created_date ?? "-"}
+                value={<MetaValue value={work.created_date} />}
               />
-              <InfoField label="저작자" value={work.creator ?? "-"} />
+              <InfoField
+                label="계약서"
+                value={
+                  contractFilename ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      {contractFilename}
+                      <button
+                        onClick={handleFileDownload}
+                        className="text-gray-400 hover:text-primary-600 transition-colors"
+                        title="다운로드"
+                      >
+                        <Download className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ) : (
+                    <MetaValue value={null} />
+                  )
+                }
+              />
+            </div>
+          </div>
+
+          {/* 저작자 정보 */}
+          <div>
+            <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+              저작자 정보
+            </h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-6">
+              <InfoField
+                label="저작권자"
+                value={<MetaValue value={work.creator} />}
+              />
+              <InfoField
+                label="공동저작자"
+                value={<MetaValue value={null} />}
+              />
+              <InfoField
+                label="저작인접권자"
+                value={<MetaValue value={null} />}
+              />
             </div>
           </div>
 
@@ -497,46 +641,43 @@ function WorkAccordion({
             </h4>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-6">
               <InfoField
-                label="저작권 기간"
-                value={work.copyright_period ?? "-"}
+                label="공개유형"
+                value={<MetaValue value={null} />}
               />
               <InfoField
-                label="이용범위"
-                value={work.usage_scope ?? "-"}
+                label="저작물성"
+                value={<MetaValue value={null} />}
               />
               <InfoField
-                label="지역구분"
-                value={work.usage_territory ?? "-"}
+                label="비보호저작물"
+                value={<MetaValue value={null} />}
+              />
+              <InfoField
+                label="업무상저작물"
+                value={<MetaValue value={null} />}
+              />
+              <InfoField
+                label="상업적이용허락"
+                value={<MetaValue value={work.usage_scope} />}
+              />
+              <InfoField
+                label="저작재산권"
+                value={<MetaValue value={work.copyright_period} />}
+              />
+              <InfoField
+                label="공동저작자동의"
+                value={<MetaValue value={meta?.consent_status} />}
+              />
+              <InfoField
+                label="유효기간"
+                value={<MetaValue value={work.copyright_period} />}
+              />
+              <InfoField
+                label="초상권"
+                value={<MetaValue value={null} />}
               />
             </div>
           </div>
-
-          {/* 계약서 추출 정보 */}
-          {meta && (
-            <div>
-              <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                계약서 추출 정보
-              </h4>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-6">
-                <InfoField
-                  label="양수자 기관명"
-                  value={meta.assignee_org ?? "-"}
-                />
-                <InfoField
-                  label="양도자명"
-                  value={meta.assignor_name ?? "-"}
-                />
-                <InfoField
-                  label="동의여부"
-                  value={meta.consent_status ?? "-"}
-                />
-                <InfoField
-                  label="날짜"
-                  value={meta.consent_date ?? "-"}
-                />
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>

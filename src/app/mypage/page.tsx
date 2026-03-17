@@ -6,6 +6,7 @@ import AppLayout from "@/components/layout/AppLayout"
 export default function MyPage() {
   const [name, setName] = useState("관리자")
   const [organization, setOrganization] = useState("한국문화정보원")
+  const [department, setDepartment] = useState("문화데이터기획과")
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -60,12 +61,23 @@ export default function MyPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                소속
+                소속기관
               </label>
               <input
                 type="text"
                 value={organization}
                 onChange={(e) => setOrganization(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                소속부서
+              </label>
+              <input
+                type="text"
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>

@@ -10,11 +10,59 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
+  const [isAdminMode, setIsAdminMode] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleUserLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError("")
+    setSuccess("")
+
+    if (!email) {
+      setError("이메일을 입력해주세요.")
+      setLoading(false)
+      return
+    }
+
+    if (isSupabaseConfigured()) {
+      // Supabase 모드: Magic Link 발송
+      try {
+        const supabase = createClient()
+        const { error: authError } = await supabase.auth.signInWithOtp({
+          email,
+        })
+        if (authError) {
+          setError(authError.message)
+          setLoading(false)
+          return
+        }
+        setSuccess("로그인 링크가 이메일로 발송되었습니다. 메일함을 확인해주세요.")
+      } catch {
+        setError("로그인 링크 발송 중 오류가 발생했습니다.")
+      }
+    } else {
+      // Mock 모드: 이메일만으로 로그인
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          email,
+          organization: "한국문화정보원",
+          name: "김담당",
+          role: "user",
+        })
+      )
+      router.push("/works")
+    }
+
+    setLoading(false)
+  }
+
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError("")
+    setSuccess("")
 
     if (!email || !password) {
       setError("이메일과 비밀번호를 입력해주세요.")
@@ -23,7 +71,7 @@ export default function LoginPage() {
     }
 
     if (isSupabaseConfigured()) {
-      // Supabase 모드: 실제 인증
+      // Supabase 모드: 비밀번호 인증
       try {
         const supabase = createClient()
         const { error: authError } = await supabase.auth.signInWithPassword({
@@ -35,15 +83,22 @@ export default function LoginPage() {
           setLoading(false)
           return
         }
-        router.push("/")
+        router.push("/works")
       } catch {
         setError("로그인 중 오류가 발생했습니다.")
-        setLoading(false)
       }
     } else {
-      // Mock 모드: 아무 이메일/비밀번호로 로그인
-      localStorage.setItem("user", JSON.stringify({ email, role: "admin" }))
-      router.push("/")
+      // Mock 모드: 관리자 로그인
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          email,
+          organization: "한국문화정보원",
+          name: "관리자",
+          role: "admin",
+        })
+      )
+      router.push("/works")
     }
 
     setLoading(false)
@@ -72,74 +127,125 @@ export default function LoginPage() {
           {!isSupabaseConfigured() && (
             <div className="mb-4 px-3 py-2 bg-blue-50 border border-blue-200 rounded-md">
               <p className="text-xs text-blue-700">
-                데모 모드: 아무 이메일/비밀번호로 로그인할 수 있습니다.
+                데모 모드: {isAdminMode ? "아무 이메일/비밀번호로 관리자 로그인할 수 있습니다." : "아무 이메일로 로그인할 수 있습니다."}
               </p>
             </div>
           )}
 
-          {/* 로그인 폼 */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                이메일
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@organization.go.kr"
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                required
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                비밀번호
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="비밀번호를 입력하세요"
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                required
-              />
-            </div>
-
-            {error && (
-              <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md">
-                {error}
+          {!isAdminMode ? (
+            /* 일반 사용자 로그인: Magic Link */
+            <form onSubmit={handleUserLogin} className="space-y-4">
+              <div>
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  이메일
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@organization.go.kr"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  required
+                />
               </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 bg-primary-700 text-white rounded-md text-sm font-medium hover:bg-primary-800 transition-colors disabled:opacity-50"
-            >
-              {loading ? "로그인 중..." : "로그인"}
-            </button>
-          </form>
+              {error && (
+                <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md">
+                  {error}
+                </div>
+              )}
 
+              {success && (
+                <div className="text-sm text-green-600 bg-green-50 px-3 py-2 rounded-md">
+                  {success}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-2.5 bg-primary-700 text-white rounded-md text-sm font-medium hover:bg-primary-800 transition-colors disabled:opacity-50"
+              >
+                {loading ? "처리 중..." : "로그인 링크 발송"}
+              </button>
+            </form>
+          ) : (
+            /* 관리자 로그인: 이메일 + 비밀번호 */
+            <form onSubmit={handleAdminLogin} className="space-y-4">
+              <div>
+                <label
+                  htmlFor="admin-email"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  이메일
+                </label>
+                <input
+                  id="admin-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="admin@organization.go.kr"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  required
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="admin-password"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  비밀번호
+                </label>
+                <input
+                  id="admin-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="비밀번호를 입력하세요"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  required
+                />
+              </div>
+
+              {error && (
+                <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-2.5 bg-primary-700 text-white rounded-md text-sm font-medium hover:bg-primary-800 transition-colors disabled:opacity-50"
+              >
+                {loading ? "로그인 중..." : "관리자 로그인"}
+              </button>
+            </form>
+          )}
+
+          {/* 모드 전환 링크 */}
           <div className="mt-4 text-center">
-            <button className="text-sm text-primary-500 hover:text-primary-700">
-              비밀번호를 잊으셨나요?
+            <button
+              onClick={() => {
+                setIsAdminMode(!isAdminMode)
+                setError("")
+                setSuccess("")
+              }}
+              className="text-xs text-gray-400 hover:text-gray-600"
+            >
+              {isAdminMode ? "일반 로그인으로 돌아가기" : "관리자 로그인"}
             </button>
           </div>
         </div>
 
         {/* 하단 컨소시엄 정보 */}
         <div className="mt-6 text-center text-xs text-gray-400">
-          한국문화정보원 · 숭실대학교 · HMC
+          무하유 · HM컴퍼니 · 숭실대 산학협력단
         </div>
       </div>
     </div>

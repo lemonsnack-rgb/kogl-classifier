@@ -67,7 +67,7 @@ function workToFormData(work: Work): WorkFormData {
   }
 }
 
-export default function ResultEditPage() {
+export default function WorkEditPage() {
   const params = useParams()
   const router = useRouter()
   const id = params.id as string
@@ -113,11 +113,11 @@ export default function ResultEditPage() {
 
   function handleSave() {
     alert("저장되었습니다")
-    router.push(`/results/${id}`)
+    router.push(`/works/${id}`)
   }
 
   function handleCancel() {
-    router.push(`/results/${id}`)
+    router.push(`/works/${id}`)
   }
 
   const currentWork = workForms[activeWorkTab]
