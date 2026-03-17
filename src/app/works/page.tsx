@@ -18,15 +18,25 @@ export default function WorksPage() {
   const allContracts = getContracts()
   const [searchQuery, setSearchQuery] = useState("")
 
+  const [activeQuery, setActiveQuery] = useState("")
+
   const contracts = useMemo(() => {
-    if (!searchQuery.trim()) return allContracts
-    const q = searchQuery.toLowerCase()
+    if (!activeQuery.trim()) return allContracts
+    const q = activeQuery.toLowerCase()
     return allContracts.filter(
       (c) =>
         (c.inspection_title && c.inspection_title.toLowerCase().includes(q)) ||
         (c.contract_filename && c.contract_filename.toLowerCase().includes(q))
     )
-  }, [allContracts, searchQuery])
+  }, [allContracts, activeQuery])
+
+  const handleSearch = () => {
+    setActiveQuery(searchQuery)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handleSearch()
+  }
 
   return (
     <AppLayout>
@@ -36,15 +46,22 @@ export default function WorksPage() {
           <h2 className="text-xl font-bold text-gray-900 flex-shrink-0">검사하기</h2>
           <div className="flex items-center gap-2 max-w-md w-full">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
                 placeholder="검사명, 파일명으로 검색"
-                className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
               />
             </div>
+            <button
+              onClick={handleSearch}
+              className="px-4 py-2 bg-primary-700 text-white rounded-lg text-sm font-medium hover:bg-primary-800 transition-colors flex items-center gap-1.5 flex-shrink-0"
+            >
+              <Search className="w-4 h-4" />
+              검색
+            </button>
           </div>
         </div>
 
@@ -58,7 +75,7 @@ export default function WorksPage() {
             <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center">
               <Plus className="w-7 h-7 text-gray-400" />
             </div>
-            <span className="text-sm font-medium text-gray-600">
+            <span className="text-base font-semibold text-gray-600">
               새 검사 시작
             </span>
           </button>
@@ -76,7 +93,7 @@ export default function WorksPage() {
                   <FileText className="w-4.5 h-4.5 text-gray-500" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-gray-900 truncate">
+                  <p className="text-base font-semibold text-gray-900 truncate">
                     {contract.inspection_title
                       ?? (contract.contract_filename
                         ? (contract.contract_filename.length > 20

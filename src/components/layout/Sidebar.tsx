@@ -91,7 +91,7 @@ export default function Sidebar() {
       {/* 로고 + 사용자 정보 */}
       <div className="p-5 border-b border-primary-700">
         <Link href="/works" className="block">
-          <div className="text-sm font-medium text-primary-300">공공저작물</div>
+          <div className="text-base font-bold leading-tight">공공저작물</div>
           <div className="text-base font-bold leading-tight">
             권리유형 자동분류
           </div>
