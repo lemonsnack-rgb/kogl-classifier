@@ -20,10 +20,11 @@ export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [userRole, setUserRole] = useState<UserRole>("user")
+  const [userName, setUserName] = useState("")
 
   useEffect(() => {
     if (isSupabaseConfigured()) {
-      const fetchRole = async () => {
+      const fetchProfile = async () => {
         try {
           const supabase = createClient()
           const {
@@ -32,24 +33,30 @@ export default function Sidebar() {
           if (user) {
             const { data: profile } = await supabase
               .from("profiles")
-              .select("role")
+              .select("role, name, organization")
               .eq("id", user.id)
               .single()
             if (profile?.role) {
               setUserRole(profile.role as UserRole)
             }
+            const org = profile?.organization || ""
+            const name = profile?.name || user.email || ""
+            setUserName(org ? `${org} ${name}` : name)
           }
         } catch {
           // ignore
         }
       }
-      fetchRole()
+      fetchProfile()
     } else {
       try {
         const stored = localStorage.getItem("user")
         if (stored) {
           const user = JSON.parse(stored)
           if (user.role) setUserRole(user.role)
+          const org = user.organization || ""
+          const name = user.name || user.email || ""
+          setUserName(org ? `${org} ${name}` : name)
         }
       } catch {
         // ignore
@@ -81,7 +88,7 @@ export default function Sidebar() {
 
   return (
     <aside className="w-60 min-h-screen bg-primary-900 text-white flex flex-col">
-      {/* 로고 영역 */}
+      {/* 로고 + 사용자 정보 */}
       <div className="p-5 border-b border-primary-700">
         <Link href="/works" className="block">
           <div className="text-sm font-medium text-primary-300">공공저작물</div>
@@ -90,6 +97,14 @@ export default function Sidebar() {
           </div>
           <div className="text-base font-bold leading-tight">서비스</div>
         </Link>
+        {userName && (
+          <div className="mt-3 pt-3 border-t border-primary-700">
+            <div className="flex items-center gap-2">
+              <User className="w-4 h-4 text-primary-400" strokeWidth={1.5} />
+              <span className="text-sm text-primary-200 truncate">{userName}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 상단 메뉴 */}
