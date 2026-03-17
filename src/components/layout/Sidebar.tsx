@@ -91,11 +91,10 @@ export default function Sidebar() {
       {/* 로고 + 사용자 정보 */}
       <div className="p-5 border-b border-primary-700">
         <Link href="/works" className="block">
-          <div className="text-base font-bold leading-tight">공공저작물</div>
-          <div className="text-base font-bold leading-tight">
-            권리유형 자동분류
+          <div className="text-lg font-bold leading-tight">공공저작물</div>
+          <div className="text-lg font-bold leading-tight">
+            권리유형 자동분류 서비스
           </div>
-          <div className="text-base font-bold leading-tight">서비스</div>
         </Link>
         {userName && (
           <div className="mt-3 pt-3 border-t border-primary-700">
