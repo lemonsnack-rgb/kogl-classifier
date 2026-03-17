@@ -351,12 +351,12 @@ export default function WorkDetailPage() {
                   alt={`공공누리 ${KOGL_TYPES[contract.gongnuri_type].label}`}
                   className="h-[56px] w-auto object-contain rounded flex-shrink-0"
                 />
-                <span className="text-base font-bold text-gray-900">
-                  {KOGL_TYPES[contract.gongnuri_type].label}
-                  <span className="font-normal text-gray-600 ml-2">
+                <div className="flex items-center gap-3">
+                  <KoglBadge type={contract.gongnuri_type} />
+                  <span className="text-base text-gray-600">
                     {KOGL_TYPES[contract.gongnuri_type].description}
                   </span>
-                </span>
+                </div>
               </div>
 
               {/* 분류 정확도 */}
@@ -764,7 +764,7 @@ function KoglBadge({ type }: { type: KoglType }) {
   const meta = KOGL_TYPES[type]
   return (
     <span
-      className="inline-flex items-center px-2.5 py-1 rounded text-sm font-bold text-white"
+      className="inline-flex items-center px-4 py-1.5 rounded-md text-base font-bold text-white"
       style={{ backgroundColor: meta.color }}
     >
       {meta.label}
