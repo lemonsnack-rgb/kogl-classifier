@@ -3,6 +3,17 @@
 import { useState, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import AppLayout from "@/components/layout/AppLayout"
+import {
+  Upload,
+  FileText,
+  X,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  CheckCircle2,
+  Search,
+} from "lucide-react"
 
 interface UploadedFile {
   file: File
@@ -10,9 +21,9 @@ interface UploadedFile {
 }
 
 const STEPS = [
-  { number: 1, label: "계약서/동의서 업로드" },
+  { number: 1, label: "기본정보 및 계약서" },
   { number: 2, label: "저작물 업로드" },
-  { number: 3, label: "확인 및 제출" },
+  { number: 3, label: "확인 및 검사" },
 ]
 
 function formatFileSize(bytes: number): string {
@@ -24,34 +35,49 @@ function formatFileSize(bytes: number): string {
 export default function WorksNewPage() {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
+  const [inspectionName, setInspectionName] = useState("")
   const [isInstitutionMade, setIsInstitutionMade] = useState(false)
   const [contractFile, setContractFile] = useState<UploadedFile | null>(null)
+  const [consentFile, setConsentFile] = useState<UploadedFile | null>(null)
   const [workFiles, setWorkFiles] = useState<UploadedFile[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const contractInputRef = useRef<HTMLInputElement>(null)
+  const consentInputRef = useRef<HTMLInputElement>(null)
   const workInputRef = useRef<HTMLInputElement>(null)
 
   // ========================================
   // 드래그 앤 드롭 핸들러
   // ========================================
 
-  const handleContractDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault()
-      if (isInstitutionMade) return
-      const file = e.dataTransfer.files[0]
-      if (file) {
-        setContractFile({ file, id: crypto.randomUUID() })
-      }
-    },
-    [isInstitutionMade]
-  )
+  const handleContractDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    const file = e.dataTransfer.files[0]
+    if (file) {
+      setContractFile({ file, id: crypto.randomUUID() })
+    }
+  }, [])
 
   const handleContractFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       setContractFile({ file, id: crypto.randomUUID() })
+    }
+    e.target.value = ""
+  }
+
+  const handleConsentDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    const file = e.dataTransfer.files[0]
+    if (file) {
+      setConsentFile({ file, id: crypto.randomUUID() })
+    }
+  }, [])
+
+  const handleConsentFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setConsentFile({ file, id: crypto.randomUUID() })
     }
     e.target.value = ""
   }
@@ -84,7 +110,8 @@ export default function WorksNewPage() {
 
   const canGoNext = () => {
     if (currentStep === 1) {
-      return isInstitutionMade || contractFile !== null
+      // 검사 명칭 필수 + 계약서 필수
+      return inspectionName.trim() !== "" && contractFile !== null
     }
     if (currentStep === 2) {
       return workFiles.length > 0
@@ -120,7 +147,7 @@ export default function WorksNewPage() {
       <div className="max-w-3xl mx-auto space-y-8">
         {/* 페이지 헤더 */}
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">문서 업로드</h2>
+          <h2 className="text-2xl font-bold text-gray-900">새 문서 업로드</h2>
           <p className="text-sm text-gray-500 mt-1">
             계약서와 저작물을 업로드하여 공공누리 유형을 자동 분류합니다.
           </p>
@@ -139,19 +166,7 @@ export default function WorksNewPage() {
                   }`}
                 >
                   {currentStep > step.number ? (
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
+                    <CheckCircle2 className="w-5 h-5" />
                   ) : (
                     step.number
                   )}
@@ -179,16 +194,30 @@ export default function WorksNewPage() {
 
         {/* 스텝 콘텐츠 */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          {/* ====== Step 1: 계약서/동의서 업로드 ====== */}
+          {/* ====== Step 1: 기본정보 및 계약서 업로드 ====== */}
           {currentStep === 1 && (
             <div className="space-y-6">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
-                  계약서/동의서 업로드
+                  기본정보 및 계약서 업로드
                 </h3>
                 <p className="text-sm text-gray-500 mt-1">
-                  저작권 양도 계약서 또는 이용 허락 동의서 파일을 업로드하세요.
+                  검사 명칭을 입력하고, 저작권 양도 계약서와 동의서를 업로드하세요.
                 </p>
+              </div>
+
+              {/* 검사 명칭 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  검사 명칭 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={inspectionName}
+                  onChange={(e) => setInspectionName(e.target.value)}
+                  placeholder="예: 2026년 1분기 박물관 소장품 저작권 검사"
+                  className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
+                />
               </div>
 
               {/* 기관 자체 제작물 체크박스 */}
@@ -198,9 +227,6 @@ export default function WorksNewPage() {
                   checked={isInstitutionMade}
                   onChange={(e) => {
                     setIsInstitutionMade(e.target.checked)
-                    if (e.target.checked) {
-                      setContractFile(null)
-                    }
                   }}
                   className="w-4 h-4 rounded border-gray-300 text-accent-600 focus:ring-accent-500"
                 />
@@ -209,122 +235,146 @@ export default function WorksNewPage() {
                     기관 자체 제작물입니다
                   </span>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    기관에서 직접 제작한 저작물인 경우 계약서 업로드가 불필요합니다.
+                    기관에서 직접 제작한 저작물인 경우 체크하세요. 계약서 업로드는 여전히 필수입니다.
                   </p>
                 </div>
               </label>
 
-              {/* 드래그 앤 드롭 영역 */}
-              <div
-                onDrop={handleContractDrop}
-                onDragOver={preventDefault}
-                onDragEnter={preventDefault}
-                onClick={() => {
-                  if (!isInstitutionMade) contractInputRef.current?.click()
-                }}
-                className={`relative border-2 border-dashed rounded-xl p-10 text-center transition-colors ${
-                  isInstitutionMade
-                    ? "border-gray-200 bg-gray-50 cursor-not-allowed opacity-50"
-                    : "border-gray-300 hover:border-accent-400 hover:bg-accent-50/30 cursor-pointer"
-                }`}
-              >
-                <input
-                  ref={contractInputRef}
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png,.tiff,.tif"
-                  onChange={handleContractFileSelect}
-                  className="hidden"
-                  disabled={isInstitutionMade}
-                />
-                <div className="space-y-3">
-                  <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
-                    <svg
-                      className="w-6 h-6 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">
-                      {isInstitutionMade
-                        ? "기관 자체 제작물로 선택되어 비활성화됨"
-                        : "파일을 드래그하여 놓거나 클릭하여 선택"}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      PDF, JPG, PNG, TIFF 지원
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* 업로드된 계약서 파일 표시 */}
-              {contractFile && !isInstitutionMade && (
-                <div className="flex items-center justify-between p-3 bg-accent-50 rounded-lg border border-accent-200">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded bg-accent-100 flex items-center justify-center">
-                      <svg
-                        className="w-4 h-4 text-accent-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                        />
-                      </svg>
+              {/* 계약서 업로드 영역 (필수) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  계약서 <span className="text-red-500">*</span>
+                </label>
+                <div
+                  onDrop={handleContractDrop}
+                  onDragOver={preventDefault}
+                  onDragEnter={preventDefault}
+                  onClick={() => contractInputRef.current?.click()}
+                  className="border-2 border-dashed border-gray-300 hover:border-accent-400 hover:bg-accent-50/30 rounded-xl p-8 text-center cursor-pointer transition-colors"
+                >
+                  <input
+                    ref={contractInputRef}
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.tiff,.tif"
+                    onChange={handleContractFileSelect}
+                    className="hidden"
+                  />
+                  <div className="space-y-2">
+                    <div className="mx-auto w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                      <Upload className="w-5 h-5 text-gray-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        {contractFile.file.name}
+                      <p className="text-sm font-medium text-gray-700">
+                        계약서 파일을 드래그하거나 클릭하여 선택
                       </p>
-                      <p className="text-xs text-gray-500">
-                        {formatFileSize(contractFile.file.size)}
+                      <p className="text-xs text-gray-400 mt-1">
+                        PDF, JPG, PNG, TIFF 지원 (1개)
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setContractFile(null)
-                    }}
-                    className="text-gray-400 hover:text-red-500 transition-colors"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
                 </div>
-              )}
+
+                {/* 업로드된 계약서 파일 표시 */}
+                {contractFile && (
+                  <div className="mt-2 flex items-center justify-between p-3 bg-accent-50 rounded-lg border border-accent-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded bg-accent-100 flex items-center justify-center">
+                        <FileText className="w-4 h-4 text-accent-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {contractFile.file.name}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {formatFileSize(contractFile.file.size)}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setContractFile(null)
+                      }}
+                      className="text-gray-400 hover:text-red-500 transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* 동의서 업로드 영역 (선택) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  동의서 <span className="text-xs text-gray-400 font-normal">(선택)</span>
+                </label>
+                <div
+                  onDrop={handleConsentDrop}
+                  onDragOver={preventDefault}
+                  onDragEnter={preventDefault}
+                  onClick={() => consentInputRef.current?.click()}
+                  className="border-2 border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50/30 rounded-xl p-8 text-center cursor-pointer transition-colors"
+                >
+                  <input
+                    ref={consentInputRef}
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.tiff,.tif"
+                    onChange={handleConsentFileSelect}
+                    className="hidden"
+                  />
+                  <div className="space-y-2">
+                    <div className="mx-auto w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                      <Upload className="w-5 h-5 text-gray-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">
+                        동의서 파일을 드래그하거나 클릭하여 선택
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        PDF, JPG, PNG, TIFF 지원 (1개)
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 업로드된 동의서 파일 표시 */}
+                {consentFile && (
+                  <div className="mt-2 flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded bg-blue-100 flex items-center justify-center">
+                        <FileText className="w-4 h-4 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {consentFile.file.name}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {formatFileSize(consentFile.file.size)}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setConsentFile(null)
+                      }}
+                      className="text-gray-400 hover:text-red-500 transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* 다음 버튼 */}
               <div className="flex justify-end pt-4">
                 <button
                   onClick={handleNext}
                   disabled={!canGoNext()}
-                  className="px-6 py-2.5 bg-accent-600 hover:bg-accent-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                  className="inline-flex items-center gap-1.5 px-6 py-2.5 bg-accent-600 hover:bg-accent-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
                 >
                   다음
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -361,19 +411,7 @@ export default function WorksNewPage() {
                 />
                 <div className="space-y-3">
                   <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
-                    <svg
-                      className="w-6 h-6 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                      />
-                    </svg>
+                    <Upload className="w-6 h-6 text-gray-400" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-700">
@@ -401,19 +439,7 @@ export default function WorksNewPage() {
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-8 h-8 rounded bg-gray-200 flex items-center justify-center flex-shrink-0">
-                            <svg
-                              className="w-4 h-4 text-gray-500"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                              />
-                            </svg>
+                            <FileText className="w-4 h-4 text-gray-500" />
                           </div>
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-gray-900 truncate">
@@ -428,19 +454,7 @@ export default function WorksNewPage() {
                           onClick={() => removeWorkFile(wf.id)}
                           className="flex-shrink-0 ml-3 text-gray-400 hover:text-red-500 transition-colors"
                         >
-                          <svg
-                            className="w-5 h-5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                            />
-                          </svg>
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     ))}
@@ -452,72 +466,81 @@ export default function WorksNewPage() {
               <div className="flex justify-between pt-4">
                 <button
                   onClick={handlePrev}
-                  className="px-6 py-2.5 border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg transition-colors"
+                  className="inline-flex items-center gap-1.5 px-6 py-2.5 border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg transition-colors"
                 >
+                  <ChevronLeft className="w-4 h-4" />
                   이전
                 </button>
                 <button
                   onClick={handleNext}
                   disabled={!canGoNext()}
-                  className="px-6 py-2.5 bg-accent-600 hover:bg-accent-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                  className="inline-flex items-center gap-1.5 px-6 py-2.5 bg-accent-600 hover:bg-accent-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
                 >
                   다음
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
           )}
 
-          {/* ====== Step 3: 확인 및 제출 ====== */}
+          {/* ====== Step 3: 확인 및 검사 ====== */}
           {currentStep === 3 && (
             <div className="space-y-6">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
-                  확인 및 제출
+                  확인 및 검사
                 </h3>
                 <p className="text-sm text-gray-500 mt-1">
-                  업로드할 파일을 확인하고 제출하세요.
+                  업로드할 파일을 확인하고 검사를 시작하세요.
                 </p>
               </div>
 
               {/* 요약 */}
               <div className="space-y-4">
-                {/* 계약서 정보 */}
+                {/* 검사 명칭 */}
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                    검사 명칭
+                  </h4>
+                  <p className="text-sm text-gray-900">{inspectionName}</p>
+                </div>
+
+                {/* 계약서/동의서 정보 */}
                 <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                   <h4 className="text-sm font-semibold text-gray-700 mb-2">
                     계약서/동의서
                   </h4>
-                  {isInstitutionMade ? (
-                    <div className="flex items-center gap-2">
+                  <div className="space-y-2">
+                    {isInstitutionMade && (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-accent-100 text-accent-700">
                         기관 자체 제작물
                       </span>
-                      <span className="text-sm text-gray-500">
-                        계약서 없음
-                      </span>
-                    </div>
-                  ) : contractFile ? (
-                    <div className="flex items-center gap-2">
-                      <svg
-                        className="w-4 h-4 text-accent-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12l2 2 4-4"
-                        />
-                      </svg>
-                      <span className="text-sm text-gray-900">
-                        {contractFile.file.name}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        ({formatFileSize(contractFile.file.size)})
-                      </span>
-                    </div>
-                  ) : null}
+                    )}
+                    {contractFile && (
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-accent-600" />
+                        <span className="text-xs text-gray-500 font-medium">계약서:</span>
+                        <span className="text-sm text-gray-900">
+                          {contractFile.file.name}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          ({formatFileSize(contractFile.file.size)})
+                        </span>
+                      </div>
+                    )}
+                    {consentFile && (
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                        <span className="text-xs text-gray-500 font-medium">동의서:</span>
+                        <span className="text-sm text-gray-900">
+                          {consentFile.file.name}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          ({formatFileSize(consentFile.file.size)})
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* 저작물 목록 */}
@@ -528,19 +551,7 @@ export default function WorksNewPage() {
                   <ul className="space-y-1.5">
                     {workFiles.map((wf) => (
                       <li key={wf.id} className="flex items-center gap-2">
-                        <svg
-                          className="w-4 h-4 text-accent-600 flex-shrink-0"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 12l2 2 4-4"
-                          />
-                        </svg>
+                        <CheckCircle2 className="w-4 h-4 text-accent-600 flex-shrink-0" />
                         <span className="text-sm text-gray-900 truncate">
                           {wf.file.name}
                         </span>
@@ -553,45 +564,31 @@ export default function WorksNewPage() {
                 </div>
               </div>
 
-              {/* 이전/제출 버튼 */}
+              {/* 이전/검사하기 버튼 */}
               <div className="flex justify-between pt-4">
                 <button
                   onClick={handlePrev}
                   disabled={isSubmitting}
-                  className="px-6 py-2.5 border border-gray-300 hover:bg-gray-50 disabled:opacity-50 text-gray-700 text-sm font-medium rounded-lg transition-colors"
+                  className="inline-flex items-center gap-1.5 px-6 py-2.5 border border-gray-300 hover:bg-gray-50 disabled:opacity-50 text-gray-700 text-sm font-medium rounded-lg transition-colors"
                 >
+                  <ChevronLeft className="w-4 h-4" />
                   이전
                 </button>
                 <button
                   onClick={handleSubmit}
                   disabled={isSubmitting}
-                  className="px-8 py-2.5 bg-accent-600 hover:bg-accent-700 disabled:bg-accent-400 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+                  className="inline-flex items-center gap-2 px-8 py-2.5 bg-accent-600 hover:bg-accent-700 disabled:bg-accent-400 text-white text-sm font-medium rounded-lg transition-colors"
                 >
                   {isSubmitting ? (
                     <>
-                      <svg
-                        className="animate-spin w-4 h-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                        />
-                      </svg>
+                      <Loader2 className="w-4 h-4 animate-spin" />
                       처리중...
                     </>
                   ) : (
-                    "제출하기"
+                    <>
+                      <Search className="w-4 h-4" />
+                      검사하기
+                    </>
                   )}
                 </button>
               </div>

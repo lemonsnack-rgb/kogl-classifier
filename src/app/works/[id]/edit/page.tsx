@@ -1,11 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useState, useEffect, Suspense } from "react"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import AppLayout from "@/components/layout/AppLayout"
 import { getContractById } from "@/lib/mock/data"
 import { KOGL_TYPES } from "@/types"
 import type { KoglType, Work } from "@/types"
+import { ArrowLeft } from "lucide-react"
+import Link from "next/link"
 
 const KOGL_OPTIONS: { value: KoglType; label: string }[] = [
   { value: "KOGL-1", label: "제1유형 - 출처표시" },
@@ -67,24 +69,32 @@ function workToFormData(work: Work): WorkFormData {
   }
 }
 
-export default function WorkEditPage() {
+function WorkEditPageContent() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const id = params.id as string
   const contract = getContractById(id)
+
+  const mode = searchParams.get("mode") ?? "type"
+  const workId = searchParams.get("work")
 
   const [koglType, setKoglType] = useState<KoglType | "">(
     contract?.gongnuri_type ?? ""
   )
   const [editReason, setEditReason] = useState("")
-  const [activeWorkTab, setActiveWorkTab] = useState(0)
-  const [workForms, setWorkForms] = useState<WorkFormData[]>([])
+  const [workForm, setWorkForm] = useState<WorkFormData | null>(null)
+  const [targetWork, setTargetWork] = useState<Work | null>(null)
 
   useEffect(() => {
-    if (contract?.works) {
-      setWorkForms(contract.works.map(workToFormData))
+    if (mode === "metadata" && workId && contract?.works) {
+      const found = contract.works.find((w) => w.id === workId)
+      if (found) {
+        setTargetWork(found)
+        setWorkForm(workToFormData(found))
+      }
     }
-  }, [contract])
+  }, [mode, workId, contract])
 
   if (!contract) {
     return (
@@ -98,16 +108,10 @@ export default function WorkEditPage() {
     )
   }
 
-  const works = contract.works ?? []
-
-  function handleWorkChange(
-    field: keyof WorkFormData,
-    value: string
-  ) {
-    setWorkForms((prev) => {
-      const next = [...prev]
-      next[activeWorkTab] = { ...next[activeWorkTab], [field]: value }
-      return next
+  function handleWorkChange(field: keyof WorkFormData, value: string) {
+    setWorkForm((prev) => {
+      if (!prev) return prev
+      return { ...prev, [field]: value }
     })
   }
 
@@ -120,14 +124,23 @@ export default function WorkEditPage() {
     router.push(`/works/${id}`)
   }
 
-  const currentWork = workForms[activeWorkTab]
-
   return (
     <AppLayout>
       <div className="max-w-5xl mx-auto">
         {/* 상단 바 */}
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">처리결과 수정</h1>
+          <div className="flex items-center gap-4">
+            <Link
+              href={`/works/${id}`}
+              className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              상세로 돌아가기
+            </Link>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {mode === "type" ? "공공누리 유형 수정" : "메타데이터 수정"}
+            </h1>
+          </div>
           <div className="flex items-center gap-2">
             <button
               onClick={handleCancel}
@@ -144,216 +157,221 @@ export default function WorkEditPage() {
           </div>
         </div>
 
-        {/* ======== 공공누리 유형 수정 ======== */}
-        <section className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            공공누리 유형 수정
-          </h2>
+        {/* ======== mode=type: 공공누리 유형 수정 ======== */}
+        {mode === "type" && (
+          <section className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              공공누리 유형 수정
+            </h2>
 
-          {/* 현재 유형 표시 */}
-          <div className="mb-4">
-            <label className="block text-xs text-gray-500 mb-1">
-              현재 유형
-            </label>
-            {contract.gongnuri_type ? (
-              <span
-                className="inline-flex items-center px-3 py-1 rounded-lg text-sm font-bold text-white"
-                style={{
-                  backgroundColor:
-                    KOGL_TYPES[contract.gongnuri_type].color,
-                }}
+            {/* 현재 유형 표시 */}
+            <div className="mb-4">
+              <label className="block text-xs text-gray-500 mb-1">
+                현재 유형
+              </label>
+              {contract.gongnuri_type ? (
+                <span
+                  className="inline-flex items-center px-3 py-1 rounded-lg text-sm font-bold text-white"
+                  style={{
+                    backgroundColor:
+                      KOGL_TYPES[contract.gongnuri_type].color,
+                  }}
+                >
+                  {KOGL_TYPES[contract.gongnuri_type].label} -{" "}
+                  {KOGL_TYPES[contract.gongnuri_type].description}
+                </span>
+              ) : (
+                <span className="text-sm text-gray-400">미분류</span>
+              )}
+            </div>
+
+            {/* 유형 변경 Select */}
+            <div className="mb-4">
+              <label className="block text-xs text-gray-500 mb-1">
+                변경할 유형
+              </label>
+              <select
+                value={koglType}
+                onChange={(e) =>
+                  setKoglType(e.target.value as KoglType | "")
+                }
+                className="w-full max-w-md border border-gray-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               >
-                {KOGL_TYPES[contract.gongnuri_type].label} -{" "}
-                {KOGL_TYPES[contract.gongnuri_type].description}
-              </span>
-            ) : (
-              <span className="text-sm text-gray-400">미분류</span>
-            )}
-          </div>
-
-          {/* 유형 변경 Select */}
-          <div className="mb-4">
-            <label className="block text-xs text-gray-500 mb-1">
-              변경할 유형
-            </label>
-            <select
-              value={koglType}
-              onChange={(e) => setKoglType(e.target.value as KoglType | "")}
-              className="w-full max-w-md border border-gray-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-            >
-              <option value="">선택하세요</option>
-              {KOGL_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* 수정 사유 */}
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">
-              수정 사유
-            </label>
-            <textarea
-              value={editReason}
-              onChange={(e) => setEditReason(e.target.value)}
-              placeholder="수정 사유를 입력하세요..."
-              rows={3}
-              className="w-full max-w-md border border-gray-200 rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-            />
-          </div>
-        </section>
-
-        {/* ======== 저작물 메타데이터 수정 ======== */}
-        <section className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            저작물 메타데이터 수정
-          </h2>
-
-          {works.length === 0 ? (
-            <p className="text-gray-400 text-sm">등록된 저작물이 없습니다.</p>
-          ) : (
-            <>
-              {/* 탭 */}
-              <div className="flex items-center gap-1 mb-5 border-b border-gray-200 overflow-x-auto">
-                {works.map((work, idx) => (
-                  <button
-                    key={work.id}
-                    onClick={() => setActiveWorkTab(idx)}
-                    className={`shrink-0 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                      activeWorkTab === idx
-                        ? "border-primary-600 text-primary-600"
-                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                    }`}
-                  >
-                    #{idx + 1} {work.work_filename}
-                  </button>
+                <option value="">선택하세요</option>
+                {KOGL_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
                 ))}
-              </div>
+              </select>
+            </div>
 
-              {/* 폼 */}
-              {currentWork && (
-                <div className="space-y-6">
-                  {/* 저작물 정보 그룹 */}
-                  <div>
-                    <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                      저작물 정보
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormInput
-                        label="저작물명"
-                        value={currentWork.work_name}
-                        onChange={(v) => handleWorkChange("work_name", v)}
-                      />
-                      <FormSelect
-                        label="유형"
-                        value={currentWork.work_type}
-                        options={WORK_TYPE_OPTIONS}
-                        onChange={(v) => handleWorkChange("work_type", v)}
-                      />
-                      <FormInput
-                        label="디지털화 형태"
-                        value={currentWork.digital_format}
-                        onChange={(v) => handleWorkChange("digital_format", v)}
-                      />
-                      <FormInput
-                        label="언어"
-                        value={currentWork.language}
-                        onChange={(v) => handleWorkChange("language", v)}
-                      />
-                      <FormInput
-                        label="제작일"
-                        value={currentWork.created_date}
-                        onChange={(v) => handleWorkChange("created_date", v)}
-                        type="date"
-                      />
-                      <FormInput
-                        label="저작자"
-                        value={currentWork.creator}
-                        onChange={(v) => handleWorkChange("creator", v)}
-                      />
-                      <FormInput
-                        label="주제어"
-                        value={currentWork.keywords}
-                        onChange={(v) => handleWorkChange("keywords", v)}
-                        placeholder="쉼표로 구분하여 입력"
-                        fullWidth
-                      />
-                      <FormTextarea
-                        label="설명"
-                        value={currentWork.description}
-                        onChange={(v) => handleWorkChange("description", v)}
-                        fullWidth
-                      />
-                    </div>
-                  </div>
+            {/* 수정 사유 */}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">
+                수정 사유
+              </label>
+              <textarea
+                value={editReason}
+                onChange={(e) => setEditReason(e.target.value)}
+                placeholder="수정 사유를 입력하세요..."
+                rows={3}
+                className="w-full max-w-md border border-gray-200 rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              />
+            </div>
+          </section>
+        )}
 
-                  {/* 권리정보 그룹 */}
-                  <div>
-                    <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                      권리정보
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormInput
-                        label="저작권 기간"
-                        value={currentWork.copyright_period}
-                        onChange={(v) =>
-                          handleWorkChange("copyright_period", v)
-                        }
-                      />
-                      <FormInput
-                        label="이용범위"
-                        value={currentWork.usage_scope}
-                        onChange={(v) => handleWorkChange("usage_scope", v)}
-                      />
-                      <FormInput
-                        label="지역구분"
-                        value={currentWork.usage_territory}
-                        onChange={(v) =>
-                          handleWorkChange("usage_territory", v)
-                        }
-                      />
-                    </div>
-                  </div>
+        {/* ======== mode=metadata: 단일 저작물 메타데이터 수정 ======== */}
+        {mode === "metadata" && (
+          <section className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">
+              저작물 메타데이터 수정
+            </h2>
+            {targetWork && (
+              <p className="text-sm text-gray-500 mb-5">
+                대상 파일: <span className="font-medium text-gray-700">{targetWork.work_filename}</span>
+              </p>
+            )}
 
-                  {/* 계약서 추출 정보 그룹 */}
-                  <div>
-                    <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                      계약서 추출 정보
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormInput
-                        label="양수자 기관명"
-                        value={currentWork.assignee_org}
-                        onChange={(v) => handleWorkChange("assignee_org", v)}
-                      />
-                      <FormInput
-                        label="양도자명"
-                        value={currentWork.assignor_name}
-                        onChange={(v) => handleWorkChange("assignor_name", v)}
-                      />
-                      <FormSelect
-                        label="동의여부"
-                        value={currentWork.consent_status}
-                        options={CONSENT_OPTIONS}
-                        onChange={(v) =>
-                          handleWorkChange("consent_status", v)
-                        }
-                      />
-                      <FormInput
-                        label="날짜"
-                        value={currentWork.consent_date}
-                        onChange={(v) => handleWorkChange("consent_date", v)}
-                        type="date"
-                      />
-                    </div>
+            {!workForm ? (
+              <p className="text-gray-400 text-sm">
+                해당 저작물을 찾을 수 없습니다. 상세 페이지에서 저작물을 선택해주세요.
+              </p>
+            ) : (
+              <div className="space-y-6">
+                {/* 저작물 정보 그룹 */}
+                <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-4">
+                  <h3 className="text-sm font-semibold text-blue-800 mb-3">
+                    저작물 정보
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormInput
+                      label="저작물명"
+                      value={workForm.work_name}
+                      onChange={(v) => handleWorkChange("work_name", v)}
+                    />
+                    <FormSelect
+                      label="유형"
+                      value={workForm.work_type}
+                      options={WORK_TYPE_OPTIONS}
+                      onChange={(v) => handleWorkChange("work_type", v)}
+                    />
+                    <FormInput
+                      label="디지털화 형태"
+                      value={workForm.digital_format}
+                      onChange={(v) =>
+                        handleWorkChange("digital_format", v)
+                      }
+                    />
+                    <FormInput
+                      label="언어"
+                      value={workForm.language}
+                      onChange={(v) => handleWorkChange("language", v)}
+                    />
+                    <FormInput
+                      label="제작일"
+                      value={workForm.created_date}
+                      onChange={(v) =>
+                        handleWorkChange("created_date", v)
+                      }
+                      type="date"
+                    />
+                    <FormInput
+                      label="저작자"
+                      value={workForm.creator}
+                      onChange={(v) => handleWorkChange("creator", v)}
+                    />
+                    <FormInput
+                      label="주제어"
+                      value={workForm.keywords}
+                      onChange={(v) => handleWorkChange("keywords", v)}
+                      placeholder="쉼표로 구분하여 입력"
+                      fullWidth
+                    />
+                    <FormTextarea
+                      label="설명"
+                      value={workForm.description}
+                      onChange={(v) =>
+                        handleWorkChange("description", v)
+                      }
+                      fullWidth
+                    />
                   </div>
                 </div>
-              )}
-            </>
-          )}
-        </section>
+
+                {/* 권리정보 그룹 */}
+                <div className="rounded-lg border border-amber-100 bg-amber-50/50 p-4">
+                  <h3 className="text-sm font-semibold text-amber-800 mb-3">
+                    권리정보
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormInput
+                      label="저작권 기간"
+                      value={workForm.copyright_period}
+                      onChange={(v) =>
+                        handleWorkChange("copyright_period", v)
+                      }
+                    />
+                    <FormInput
+                      label="이용범위"
+                      value={workForm.usage_scope}
+                      onChange={(v) =>
+                        handleWorkChange("usage_scope", v)
+                      }
+                    />
+                    <FormInput
+                      label="지역구분"
+                      value={workForm.usage_territory}
+                      onChange={(v) =>
+                        handleWorkChange("usage_territory", v)
+                      }
+                    />
+                  </div>
+                </div>
+
+                {/* 계약서 추출 정보 그룹 */}
+                <div className="rounded-lg border border-green-100 bg-green-50/50 p-4">
+                  <h3 className="text-sm font-semibold text-green-800 mb-3">
+                    계약서 추출 정보
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormInput
+                      label="양수자 기관명"
+                      value={workForm.assignee_org}
+                      onChange={(v) =>
+                        handleWorkChange("assignee_org", v)
+                      }
+                    />
+                    <FormInput
+                      label="양도자명"
+                      value={workForm.assignor_name}
+                      onChange={(v) =>
+                        handleWorkChange("assignor_name", v)
+                      }
+                    />
+                    <FormSelect
+                      label="동의여부"
+                      value={workForm.consent_status}
+                      options={CONSENT_OPTIONS}
+                      onChange={(v) =>
+                        handleWorkChange("consent_status", v)
+                      }
+                    />
+                    <FormInput
+                      label="날짜"
+                      value={workForm.consent_date}
+                      onChange={(v) =>
+                        handleWorkChange("consent_date", v)
+                      }
+                      type="date"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
 
         {/* 하단 저장 버튼 (모바일 편의) */}
         <div className="flex items-center justify-end gap-2 pb-6">
@@ -372,6 +390,24 @@ export default function WorkEditPage() {
         </div>
       </div>
     </AppLayout>
+  )
+}
+
+export default function WorkEditPage() {
+  return (
+    <Suspense
+      fallback={
+        <AppLayout>
+          <div className="max-w-5xl mx-auto">
+            <div className="text-center py-20">
+              <p className="text-gray-400 text-lg">로딩중...</p>
+            </div>
+          </div>
+        </AppLayout>
+      }
+    >
+      <WorkEditPageContent />
+    </Suspense>
   )
 }
 

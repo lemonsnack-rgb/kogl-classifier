@@ -10,8 +10,6 @@
     --foreground: 0 0% 10%;
     --card: 0 0% 100%;
     --card-foreground: 0 0% 10%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 10%;
     --primary: 218 46% 20%;
     --primary-foreground: 0 0% 100%;
     --secondary: 220 14% 96%;
@@ -60,3 +58,54 @@
 .status-review { @apply bg-yellow-50 text-yellow-700; }
 .status-complete { @apply bg-green-50 text-green-700; }
 .status-failed { @apply bg-red-50 text-red-700; }
+
+/* 카드 스타일 */
+.card {
+  @apply bg-white border border-gray-200 rounded-lg shadow-sm;
+}
+
+/* 섹션 구분 스타일 */
+.section-info {
+  @apply rounded-lg border border-blue-100 bg-blue-50/50 p-4;
+}
+
+.section-creator {
+  @apply rounded-lg border border-green-100 bg-green-50/50 p-4;
+}
+
+.section-rights {
+  @apply rounded-lg border border-amber-100 bg-amber-50/50 p-4;
+}
+
+/* 폼 요소 개선 */
+input[type="text"],
+input[type="date"],
+input[type="email"],
+input[type="number"],
+textarea,
+select {
+  @apply transition-colors duration-150;
+}
+
+/* 버튼 포커스 스타일 */
+button:focus-visible {
+  @apply outline-none ring-2 ring-primary-500 ring-offset-2;
+}
+
+/* 스크롤바 스타일 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400;
+}

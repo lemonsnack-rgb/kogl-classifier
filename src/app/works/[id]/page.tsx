@@ -14,6 +14,7 @@ import {
   ArrowLeft,
   Edit,
   FileText,
+  Pencil,
 } from "lucide-react"
 
 const CLAUSE_TYPE_LABELS: Record<ClauseType, string> = {
@@ -161,7 +162,7 @@ export default function WorkDetailPage() {
   return (
     <AppLayout>
       <div className="max-w-5xl mx-auto">
-        {/* 뒤로가기 + 수정 버튼 */}
+        {/* 뒤로가기 */}
         <div className="flex items-center justify-between mb-5">
           <Link
             href="/works"
@@ -169,13 +170,6 @@ export default function WorkDetailPage() {
           >
             <ArrowLeft className="w-4 h-4" />
             목록으로
-          </Link>
-          <Link
-            href={`/works/${id}/edit`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary-600 border border-primary-200 rounded-md hover:bg-primary-50 transition-colors"
-          >
-            <Edit className="w-3.5 h-3.5" />
-            수정
           </Link>
         </div>
 
@@ -224,11 +218,11 @@ export default function WorkDetailPage() {
               공공누리 유형 분류 결과
             </h2>
             <Link
-              href={`/works/${id}/edit`}
+              href={`/works/${id}/edit?mode=type`}
               className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-primary-600 border border-primary-200 rounded-md hover:bg-primary-50 transition-colors"
             >
               <Edit className="w-3.5 h-3.5" />
-              수정
+              유형 수정
             </Link>
           </div>
 
@@ -385,13 +379,6 @@ export default function WorkDetailPage() {
                 <Download className="w-3.5 h-3.5" />
                 엑셀 다운로드
               </button>
-              <Link
-                href={`/works/${id}/edit`}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-primary-600 border border-primary-200 rounded-md hover:bg-primary-50 transition-colors"
-              >
-                <Edit className="w-3.5 h-3.5" />
-                수정
-              </Link>
             </div>
           </div>
 
@@ -403,6 +390,7 @@ export default function WorkDetailPage() {
                 <WorkAccordion
                   key={work.id}
                   work={work}
+                  contractId={id}
                   contractFilename={contract.contract_filename}
                   index={idx}
                   isOpen={!!openAccordions[idx]}
@@ -482,12 +470,14 @@ function MetaValue({ value }: { value: React.ReactNode }) {
 
 function WorkAccordion({
   work,
+  contractId,
   contractFilename,
   index,
   isOpen,
   onToggle,
 }: {
   work: Work
+  contractId: string
   contractFilename: string | null
   index: number
   isOpen: boolean
@@ -524,20 +514,31 @@ function WorkAccordion({
             <Download className="w-3.5 h-3.5" />
           </button>
         </div>
-        {isOpen ? (
-          <ChevronDown className="w-4 h-4 text-gray-400" />
-        ) : (
-          <ChevronRight className="w-4 h-4 text-gray-400" />
-        )}
+        <div className="flex items-center gap-2">
+          {/* 개별 저작물 메타데이터 수정 버튼 */}
+          <Link
+            href={`/works/${contractId}/edit?mode=metadata&work=${work.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-primary-600 border border-primary-200 rounded hover:bg-primary-50 transition-colors"
+          >
+            <Pencil className="w-3 h-3" />
+            수정
+          </Link>
+          {isOpen ? (
+            <ChevronDown className="w-4 h-4 text-gray-400" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-gray-400" />
+          )}
+        </div>
       </button>
 
-      {/* 본문 */}
+      {/* 본문 - 3개 섹션으로 명확히 구분 */}
       {isOpen && (
-        <div className="px-4 py-4 space-y-5 text-sm">
-          {/* 저작물 정보 */}
-          <div>
-            <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-              저작물 정보
+        <div className="px-4 py-4 space-y-4 text-sm">
+          {/* 저작물정보 섹션 */}
+          <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-4">
+            <h4 className="text-sm font-semibold text-blue-800 mb-3">
+              저작물정보
             </h4>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-6">
               <InfoField
@@ -572,7 +573,7 @@ function WorkAccordion({
                       {work.keywords.map((kw) => (
                         <span
                           key={kw}
-                          className="inline-flex px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-xs"
+                          className="inline-flex px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs"
                         >
                           #{kw}
                         </span>
@@ -613,10 +614,10 @@ function WorkAccordion({
             </div>
           </div>
 
-          {/* 저작자 정보 */}
-          <div>
-            <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-              저작자 정보
+          {/* 저작자정보 섹션 */}
+          <div className="rounded-lg border border-green-100 bg-green-50/50 p-4">
+            <h4 className="text-sm font-semibold text-green-800 mb-3">
+              저작자정보
             </h4>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-6">
               <InfoField
@@ -634,9 +635,9 @@ function WorkAccordion({
             </div>
           </div>
 
-          {/* 권리정보 */}
-          <div>
-            <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+          {/* 권리정보 섹션 */}
+          <div className="rounded-lg border border-amber-100 bg-amber-50/50 p-4">
+            <h4 className="text-sm font-semibold text-amber-800 mb-3">
               권리정보
             </h4>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-6">
