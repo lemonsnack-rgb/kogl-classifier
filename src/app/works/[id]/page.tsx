@@ -271,6 +271,9 @@ export default function WorkDetailPage() {
             />
           </div>
 
+          {/* 섹션 구분선 */}
+          <div className="border-t border-gray-200 my-5" />
+
           {/* ── 공공누리 유형 분류 결과 섹션 ── */}
           <div className="flex items-center justify-between mb-3">
             <SectionDivider title="공공누리 자동분류 정보" />
@@ -415,6 +418,9 @@ export default function WorkDetailPage() {
               분류 결과 없음
             </p>
           )}
+
+          {/* 섹션 구분선 */}
+          <div className="border-t border-gray-200 my-5" />
 
           {/* ── 저작물 목록 섹션 ── */}
           <SectionDivider title={`저작물 목록 (${works.length}건)`} />
