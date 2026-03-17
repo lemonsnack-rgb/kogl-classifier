@@ -1,15 +1,40 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Suspense } from "react"
 import { isSupabaseConfigured, createClient } from "@/lib/supabase/client"
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+
+  // Magic Link 콜백: URL에 code가 있으면 세션 교환
+  useEffect(() => {
+    const code = searchParams.get("code")
+    if (code && isSupabaseConfigured()) {
+      const exchangeCode = async () => {
+        setLoading(true)
+        try {
+          const supabase = createClient()
+          const { error } = await supabase.auth.exchangeCodeForSession(code)
+          if (!error) {
+            router.push("/works")
+            return
+          }
+          setError("인증에 실패했습니다. 다시 시도해주세요.")
+        } catch {
+          setError("인증 처리 중 오류가 발생했습니다.")
+        }
+        setLoading(false)
+      }
+      exchangeCode()
+    }
+  }, [searchParams, router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -144,5 +169,17 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-sm text-gray-500">로딩 중...</p>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   )
 }
