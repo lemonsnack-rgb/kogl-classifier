@@ -233,7 +233,7 @@ export default function WorkDetailPage() {
         <div className="w-1/2 flex-shrink-0 overflow-y-auto border-r border-gray-200 bg-white px-6 py-5">
 
           {/* ── 계약서 정보 섹션 ── */}
-          <SectionDivider title="계약서 정보" />
+          <SectionDivider title="계약서 기본정보" />
           <div className="space-y-2.5 mb-6">
             <LeftField
               label="파일명"
@@ -273,7 +273,7 @@ export default function WorkDetailPage() {
 
           {/* ── 공공누리 유형 분류 결과 섹션 ── */}
           <div className="flex items-center justify-between mb-3">
-            <SectionDivider title="공공누리 유형" />
+            <SectionDivider title="공공누리 자동분류 정보" />
             {!editingType && contract.gongnuri_type && (
               <button
                 onClick={startEditType}
@@ -380,7 +380,7 @@ export default function WorkDetailPage() {
               <div>
                 <div className="flex items-center gap-1.5 mb-2">
                   <FileText className="w-4 h-4 text-gray-500" />
-                  <span className="text-sm text-gray-500 font-medium">판단 근거 조항</span>
+                  <span className="text-sm text-gray-500 font-medium">자동분류 근거 내용</span>
                 </div>
               {clauses.length > 0 ? (
                   <div className="space-y-2">
@@ -404,7 +404,7 @@ export default function WorkDetailPage() {
               ) : (
                 <div className="border border-amber-200 bg-amber-50 rounded-lg p-3">
                   <p className="text-xs text-amber-700 font-medium">
-                    판단 근거 조항이 아직 추출되지 않았습니다. 근거 문구는 필수 항목입니다.
+                    자동분류 근거 내용이 아직 추출되지 않았습니다. 근거 문구는 필수 항목입니다.
                   </p>
                 </div>
               )}

@@ -8,9 +8,25 @@ import { KOGL_TYPES, STATUS_META } from "@/types"
 import type { KoglType, ContractStatus } from "@/types"
 import { Plus, FileText, Search } from "lucide-react"
 
-function formatDate(dateStr: string): string {
+function formatDateTime(dateStr: string): string {
   const d = new Date(dateStr)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
+}
+
+/** 저작물 유형 목록에서 대표 유형 추출 */
+function getWorkTypes(contract: { works?: { work_type: string | null }[] }): string {
+  const types = new Set<string>()
+  contract.works?.forEach(w => {
+    if (w.work_type) types.add(WORK_TYPE_LABELS[w.work_type] ?? w.work_type)
+  })
+  return types.size > 0 ? Array.from(types).join(", ") : "-"
+}
+
+const WORK_TYPE_LABELS: Record<string, string> = {
+  image: "이미지",
+  text: "텍스트",
+  audio: "오디오",
+  video: "영상",
 }
 
 export default function WorksPage() {
@@ -87,7 +103,7 @@ export default function WorksPage() {
               onClick={() => router.push(`/works/${contract.id}`)}
               className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition p-6 text-left cursor-pointer min-h-[200px] flex flex-col"
             >
-              {/* 상단: 아이콘 + 검사명칭 */}
+              {/* 검사명 */}
               <div className="flex items-start gap-3 mb-3">
                 <div className="w-9 h-9 rounded bg-gray-100 flex items-center justify-center flex-shrink-0 mt-0.5">
                   <FileText className="w-4.5 h-4.5 text-gray-500" />
@@ -104,25 +120,29 @@ export default function WorksPage() {
                 </div>
               </div>
 
-              {/* 뱃지 줄: KOGL 유형 + 상태 */}
-              <div className="flex flex-wrap items-center gap-2 mb-3">
-                {/* KOGL 유형 뱃지 */}
+              {/* 유형분류결과 / 저작물 유형 */}
+              <div className="flex items-center justify-between mb-2">
                 {contract.gongnuri_type ? (
                   <KoglBadge type={contract.gongnuri_type} />
                 ) : (
                   <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">
-                    -
+                    미분류
                   </span>
                 )}
+                <span className="text-xs text-gray-500">
+                  {getWorkTypes(contract)}
+                </span>
+              </div>
 
-                {/* 상태 뱃지 */}
+              {/* 검사 상태 */}
+              <div className="mb-3">
                 <StatusBadge status={contract.status} />
               </div>
 
-              {/* 하단: 저작물 수 + 등록일 */}
+              {/* 저작물 건수 / 날짜 */}
               <div className="flex items-center justify-between text-xs text-gray-500 mt-auto pt-3 border-t border-gray-100">
                 <span>저작물 {contract.works_count ?? 0}건</span>
-                <span>{formatDate(contract.created_at)}</span>
+                <span>{formatDateTime(contract.created_at)}</span>
               </div>
             </button>
           ))}
