@@ -723,7 +723,6 @@ export default function WorkDetailPage() {
 function SectionDivider({ title }: { title: string }) {
   return (
     <div className="mb-4">
-      <div className="border-t border-gray-200 mb-2" />
       <span className="text-base font-bold text-gray-600 tracking-wide">
         {title}
       </span>
