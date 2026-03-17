@@ -344,19 +344,19 @@ export default function WorkDetailPage() {
           ) : contract.gongnuri_type ? (
             <div className="mb-6">
               {/* KOGL 이미지 + 유형 */}
-              <div className="flex items-center gap-3 mb-3">
+              <div className="flex items-center gap-4 mb-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={getKoglImageSrc(contract.gongnuri_type)}
                   alt={`공공누리 ${KOGL_TYPES[contract.gongnuri_type].label}`}
                   className="h-[56px] w-auto object-contain rounded flex-shrink-0"
                 />
-                <div>
-                  <KoglBadge type={contract.gongnuri_type} />
-                  <p className="text-xs text-gray-500 mt-1">
+                <span className="text-base font-bold text-gray-900">
+                  {KOGL_TYPES[contract.gongnuri_type].label}
+                  <span className="font-normal text-gray-600 ml-2">
                     {KOGL_TYPES[contract.gongnuri_type].description}
-                  </p>
-                </div>
+                  </span>
+                </span>
               </div>
 
               {/* 분류 정확도 */}
