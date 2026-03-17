@@ -488,14 +488,21 @@ export default function WorkDetailPage() {
             </div>
           ) : (
             <div>
-              {/* 헤더: 번호 + 제목 + 수정/취소 버튼 */}
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-bold text-gray-900">
-                  <span className="text-primary-600">
-                    #{(selectedWorkIdx ?? 0) + 1}
-                  </span>{" "}
-                  {selectedWork.work_name ?? selectedWork.work_filename}
-                </h2>
+              {/* 영역 제목: 저작물 메타데이터 */}
+              <div className="mb-4 pb-3 border-b border-gray-200">
+                <h2 className="text-base font-bold text-gray-600 tracking-wide">저작물 메타데이터</h2>
+              </div>
+
+              {/* 선택된 저작물 + 수정/취소 버튼 */}
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-primary-600 text-white text-xs font-bold">
+                    {(selectedWorkIdx ?? 0) + 1}
+                  </span>
+                  <h3 className="text-sm font-semibold text-gray-800">
+                    {selectedWork.work_name ?? selectedWork.work_filename}
+                  </h3>
+                </div>
                 {!editingMeta ? (
                   <button
                     onClick={startEditMeta}
