@@ -212,7 +212,7 @@ export default function WorkDetailPage() {
     <AppLayout>
       <div className="flex h-[calc(100vh-24px)]">
         {/* ====== 좌측 패널 ====== */}
-        <div className="w-[480px] flex-shrink-0 h-[calc(100vh-24px)] overflow-y-auto border-r border-gray-200 bg-white px-6 py-4">
+        <div className="w-1/2 flex-shrink-0 h-[calc(100vh-24px)] overflow-y-auto border-r border-gray-200 bg-white px-6 py-5">
           {/* 목록으로 */}
           <Link
             href="/works"
@@ -353,10 +353,10 @@ export default function WorkDetailPage() {
                 </div>
               </div>
 
-              {/* 신뢰도 */}
+              {/* 분류 정확도 */}
               <div className="mb-3">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-gray-400">신뢰도</span>
+                  <span className="text-sm text-gray-500">분류 정확도</span>
                   <span className="text-sm font-semibold text-gray-700 tabular-nums">
                     {((contract.gongnuri_confidence ?? 0) * 100).toFixed(1)}%
                   </span>
@@ -376,8 +376,8 @@ export default function WorkDetailPage() {
               {/* 판단 근거 (필수) */}
               <div>
                 <div className="flex items-center gap-1.5 mb-2">
-                  <FileText className="w-3.5 h-3.5 text-gray-400" />
-                  <span className="text-xs text-gray-400">판단 근거 조항</span>
+                  <FileText className="w-4 h-4 text-gray-500" />
+                  <span className="text-sm text-gray-500 font-medium">판단 근거 조항</span>
                 </div>
               {clauses.length > 0 ? (
                   <div className="space-y-2">
@@ -386,16 +386,13 @@ export default function WorkDetailPage() {
                         key={clause.id}
                         className="border border-gray-100 rounded-lg p-3"
                       >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-50 text-primary-700">
+                        <div className="mb-1.5">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded text-sm font-medium bg-primary-50 text-primary-700">
                             {CLAUSE_TYPE_LABELS[clause.clause_type] ??
                               clause.clause_type}
                           </span>
-                          <span className="text-xs text-gray-400 tabular-nums">
-                            {(clause.match_score * 100).toFixed(0)}%
-                          </span>
                         </div>
-                        <blockquote className="border-l-2 border-accent-500 bg-accent-50 pl-3 py-1.5 text-xs italic text-gray-600 leading-relaxed">
+                        <blockquote className="border-l-3 border-accent-500 bg-accent-50 pl-3 py-2 text-sm italic text-gray-700 leading-relaxed">
                           &ldquo;{clause.clause_text}&rdquo;
                         </blockquote>
                       </div>
@@ -477,7 +474,7 @@ export default function WorkDetailPage() {
         </div>
 
         {/* ====== 우측 패널 ====== */}
-        <div className="flex-1 h-[calc(100vh-24px)] overflow-y-auto bg-gray-50 px-8 py-6">
+        <div className="w-1/2 h-[calc(100vh-24px)] overflow-y-auto bg-gray-50 px-8 py-5">
           {selectedWork === null ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
@@ -716,9 +713,9 @@ export default function WorkDetailPage() {
 /** 좌측 패널 섹션 구분선 + 섹션명 */
 function SectionDivider({ title }: { title: string }) {
   return (
-    <div className="mb-3">
+    <div className="mb-4">
       <div className="border-t border-gray-200 mb-2" />
-      <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+      <span className="text-base font-bold text-gray-600 tracking-wide">
         {title}
       </span>
     </div>
@@ -735,7 +732,7 @@ function LeftField({
 }) {
   return (
     <div className="flex items-baseline gap-3">
-      <span className="text-xs text-gray-400 w-20 flex-shrink-0">{label}</span>
+      <span className="text-sm text-gray-500 w-24 flex-shrink-0">{label}</span>
       <div className="text-sm text-gray-900 font-medium flex-1 min-w-0">
         {value}
       </div>
@@ -745,7 +742,7 @@ function LeftField({
 
 /** 미식별 빈 값 표시 */
 function EmptyValue() {
-  return <span className="text-sm text-gray-300 italic">미식별</span>
+  return <span className="text-sm text-gray-400 italic">미식별</span>
 }
 
 /** KOGL 뱃지 (소형) */
@@ -811,7 +808,7 @@ function MetaSection({
   const c = colorMap[color]
   return (
     <div className={`rounded-lg border ${c.border} ${c.bg} p-5 mb-4`}>
-      <h3 className={`text-sm font-semibold ${c.title} mb-4`}>{title}</h3>
+      <h3 className={`text-base font-bold ${c.title} mb-4`}>{title}</h3>
       {children}
     </div>
   )
@@ -839,7 +836,7 @@ function MetaField({
 }) {
   return (
     <div>
-      <p className="text-xs text-gray-400 mb-1">{label}</p>
+      <p className="text-sm text-gray-500 mb-1">{label}</p>
       {editing && onChange ? (
         editType === "select" && selectOptions ? (
           <select
