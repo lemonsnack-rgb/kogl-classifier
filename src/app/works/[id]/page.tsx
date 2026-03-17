@@ -212,7 +212,7 @@ export default function WorkDetailPage() {
     <AppLayout>
       <div className="flex h-[calc(100vh-24px)]">
         {/* ====== 좌측 패널 ====== */}
-        <div className="w-[400px] flex-shrink-0 h-[calc(100vh-24px)] overflow-y-auto border-r border-gray-200 bg-white px-5 py-4">
+        <div className="w-[480px] flex-shrink-0 h-[calc(100vh-24px)] overflow-y-auto border-r border-gray-200 bg-white px-6 py-4">
           {/* 목록으로 */}
           <Link
             href="/works"
@@ -373,13 +373,13 @@ export default function WorkDetailPage() {
                 </div>
               </div>
 
-              {/* 판단 근거 */}
-              {clauses.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <FileText className="w-3.5 h-3.5 text-gray-400" />
-                    <span className="text-xs text-gray-400">판단 근거 조항</span>
-                  </div>
+              {/* 판단 근거 (필수) */}
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <FileText className="w-3.5 h-3.5 text-gray-400" />
+                  <span className="text-xs text-gray-400">판단 근거 조항</span>
+                </div>
+              {clauses.length > 0 ? (
                   <div className="space-y-2">
                     {clauses.map((clause) => (
                       <div
@@ -401,8 +401,14 @@ export default function WorkDetailPage() {
                       </div>
                     ))}
                   </div>
+              ) : (
+                <div className="border border-amber-200 bg-amber-50 rounded-lg p-3">
+                  <p className="text-xs text-amber-700 font-medium">
+                    판단 근거 조항이 아직 추출되지 않았습니다. 근거 문구는 필수 항목입니다.
+                  </p>
                 </div>
               )}
+              </div>
             </div>
           ) : (
             <p className="text-sm text-gray-300 italic mb-6">
@@ -523,7 +529,7 @@ export default function WorkDetailPage() {
 
               {/* 저작물정보 섹션 */}
               <MetaSection title="저작물정보" color="blue">
-                <div className="grid grid-cols-2 gap-y-4 gap-x-6">
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-y-4 gap-x-6">
                   <MetaField
                     label="저작물명"
                     value={selectedWork.work_name}
@@ -624,7 +630,7 @@ export default function WorkDetailPage() {
 
               {/* 저작자정보 섹션 */}
               <MetaSection title="저작자정보" color="green">
-                <div className="grid grid-cols-2 gap-y-4 gap-x-6">
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-y-4 gap-x-6">
                   <MetaField
                     label="저작권자"
                     value={selectedWork.creator}
@@ -649,7 +655,7 @@ export default function WorkDetailPage() {
 
               {/* 권리정보 섹션 */}
               <MetaSection title="권리정보" color="amber">
-                <div className="grid grid-cols-2 gap-y-4 gap-x-6">
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-y-4 gap-x-6">
                   <MetaField label="공개유형" value={null} editing={false} />
                   <MetaField label="저작물성" value={null} editing={false} />
                   <MetaField
