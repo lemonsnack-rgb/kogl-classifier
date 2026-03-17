@@ -210,24 +210,27 @@ export default function WorkDetailPage() {
 
   return (
     <AppLayout>
-      <div className="flex h-[calc(100vh-24px)]">
-        {/* ====== 좌측 패널 ====== */}
-        <div className="w-1/2 flex-shrink-0 h-[calc(100vh-24px)] overflow-y-auto border-r border-gray-200 bg-white px-6 py-5">
-          {/* 목록으로 */}
+      <div className="flex flex-col h-[calc(100vh-24px)]">
+        {/* ====== 상단: 검사명 (최상위 위계) ====== */}
+        <div className="flex-shrink-0 bg-white border-b border-gray-200 px-6 py-4">
           <Link
             href="/works"
-            className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-4"
+            className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-2"
           >
             <ArrowLeft className="w-4 h-4" />
             목록으로
           </Link>
-
-          {/* 검사제목 */}
-          <h1 className="text-xl font-bold text-gray-900 mb-6">
+          <h1 className="text-xl font-bold text-gray-900">
             {contract.inspection_title ??
               contract.contract_filename ??
               "검사 결과"}
           </h1>
+        </div>
+
+        {/* ====== 하단: 좌우 2단 ====== */}
+        <div className="flex flex-1 min-h-0">
+        {/* ====== 좌측 패널 ====== */}
+        <div className="w-1/2 flex-shrink-0 overflow-y-auto border-r border-gray-200 bg-white px-6 py-5">
 
           {/* ── 계약서 정보 섹션 ── */}
           <SectionDivider title="계약서 정보" />
@@ -474,7 +477,7 @@ export default function WorkDetailPage() {
         </div>
 
         {/* ====== 우측 패널 ====== */}
-        <div className="w-1/2 h-[calc(100vh-24px)] overflow-y-auto bg-gray-50 px-8 py-5">
+        <div className="w-1/2 overflow-y-auto bg-gray-50 px-8 py-5">
           {selectedWork === null ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
@@ -488,10 +491,8 @@ export default function WorkDetailPage() {
             </div>
           ) : (
             <div>
-              {/* 영역 제목: 저작물 메타데이터 */}
-              <div className="mb-4 pb-3 border-b border-gray-200">
-                <h2 className="text-base font-bold text-gray-600 tracking-wide">저작물 메타데이터</h2>
-              </div>
+              {/* 영역 제목: 저작물 메타데이터 - 좌측 섹션과 동일 위계 */}
+              <SectionDivider title="저작물 메타데이터" />
 
               {/* 선택된 저작물 + 수정/취소 버튼 */}
               <div className="flex items-center justify-between mb-5">
@@ -707,6 +708,7 @@ export default function WorkDetailPage() {
               </MetaSection>
             </div>
           )}
+        </div>
         </div>
       </div>
     </AppLayout>
