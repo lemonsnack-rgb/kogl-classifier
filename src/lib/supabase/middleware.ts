@@ -30,7 +30,7 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   // 로그인하지 않은 경우 → 로그인 페이지로 리다이렉트
-  const publicPaths = ["/login", "/set-password"]
+  const publicPaths = ["/login", "/auth/callback"]
   const isPublicPath = publicPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   )

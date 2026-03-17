@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { usePathname } from "next/navigation"
+import { isSupabaseConfigured, createClient } from "@/lib/supabase/client"
 
 function getPageTitle(pathname: string): string {
   if (pathname === "/works") return "검사하기"
@@ -17,21 +18,59 @@ export default function Header() {
   const [displayName, setDisplayName] = useState("사용자")
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem("user")
-      if (stored) {
-        const user = JSON.parse(stored)
-        const parts: string[] = []
-        if (user.organization) parts.push(user.organization)
-        if (user.name) parts.push(user.name)
-        if (parts.length > 0) {
-          setDisplayName(parts.join(" "))
-        } else if (user.email) {
-          setDisplayName(user.email)
+    if (isSupabaseConfigured()) {
+      // Supabase 모드: auth + profiles 테이블에서 사용자 정보 조회
+      const fetchUser = async () => {
+        try {
+          const supabase = createClient()
+          const {
+            data: { user },
+          } = await supabase.auth.getUser()
+
+          if (user) {
+            // profiles 테이블에서 organization, name 조회
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("organization, name")
+              .eq("id", user.id)
+              .single()
+
+            if (profile) {
+              const parts: string[] = []
+              if (profile.organization) parts.push(profile.organization)
+              if (profile.name) parts.push(profile.name)
+              if (parts.length > 0) {
+                setDisplayName(parts.join(" "))
+              } else {
+                setDisplayName(user.email || "사용자")
+              }
+            } else {
+              setDisplayName(user.email || "사용자")
+            }
+          }
+        } catch {
+          // 오류 시 기본값 유지
         }
       }
-    } catch {
-      // ignore parse errors
+      fetchUser()
+    } else {
+      // Mock 모드: localStorage에서 사용자 정보 로드
+      try {
+        const stored = localStorage.getItem("user")
+        if (stored) {
+          const user = JSON.parse(stored)
+          const parts: string[] = []
+          if (user.organization) parts.push(user.organization)
+          if (user.name) parts.push(user.name)
+          if (parts.length > 0) {
+            setDisplayName(parts.join(" "))
+          } else if (user.email) {
+            setDisplayName(user.email)
+          }
+        }
+      } catch {
+        // ignore parse errors
+      }
     }
   }, [])
 

@@ -1,29 +1,128 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import AppLayout from "@/components/layout/AppLayout"
+import { isSupabaseConfigured, createClient } from "@/lib/supabase/client"
 
 export default function MyPage() {
-  const [name, setName] = useState("관리자")
-  const [organization, setOrganization] = useState("한국문화정보원")
-  const [department, setDepartment] = useState("문화데이터기획과")
-  const [currentPassword, setCurrentPassword] = useState("")
-  const [newPassword, setNewPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
+  const [email, setEmail] = useState("")
+  const [name, setName] = useState("")
+  const [organization, setOrganization] = useState("")
+  const [department, setDepartment] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
 
-  const handleProfileSave = () => {
-    alert("프로필이 저장되었습니다.")
+  useEffect(() => {
+    if (isSupabaseConfigured()) {
+      const fetchProfile = async () => {
+        try {
+          const supabase = createClient()
+          const {
+            data: { user },
+          } = await supabase.auth.getUser()
+
+          if (user) {
+            setUserId(user.id)
+            setEmail(user.email || "")
+
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("name, organization, department")
+              .eq("id", user.id)
+              .single()
+
+            if (profile) {
+              setName(profile.name || "")
+              setOrganization(profile.organization || "")
+              setDepartment(profile.department || "")
+            }
+          }
+        } catch {
+          // ignore
+        }
+        setLoading(false)
+      }
+      fetchProfile()
+    } else {
+      // Mock 모드
+      try {
+        const stored = localStorage.getItem("user")
+        if (stored) {
+          const user = JSON.parse(stored)
+          setEmail(user.email || "admin@kcii.go.kr")
+          setName(user.name || "관리자")
+          setOrganization(user.organization || "한국문화정보원")
+          setDepartment(user.department || "문화데이터기획과")
+        } else {
+          setEmail("admin@kcii.go.kr")
+          setName("관리자")
+          setOrganization("한국문화정보원")
+          setDepartment("문화데이터기획과")
+        }
+      } catch {
+        setEmail("admin@kcii.go.kr")
+        setName("관리자")
+        setOrganization("한국문화정보원")
+        setDepartment("문화데이터기획과")
+      }
+      setLoading(false)
+    }
+  }, [])
+
+  const handleProfileSave = async () => {
+    setSaving(true)
+
+    if (isSupabaseConfigured() && userId) {
+      try {
+        const supabase = createClient()
+        const { error } = await supabase
+          .from("profiles")
+          .update({
+            name: name || null,
+            organization: organization || null,
+            department: department || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", userId)
+
+        if (error) {
+          alert("프로필 저장 중 오류가 발생했습니다: " + error.message)
+          setSaving(false)
+          return
+        }
+        alert("프로필이 저장되었습니다.")
+      } catch {
+        alert("프로필 저장 중 오류가 발생했습니다.")
+      }
+    } else {
+      // Mock 모드: localStorage 업데이트
+      try {
+        const stored = localStorage.getItem("user")
+        const user = stored ? JSON.parse(stored) : {}
+        user.name = name
+        user.organization = organization
+        user.department = department
+        localStorage.setItem("user", JSON.stringify(user))
+      } catch {
+        // ignore
+      }
+      alert("프로필이 저장되었습니다.")
+    }
+
+    setSaving(false)
   }
 
-  const handlePasswordChange = () => {
-    if (newPassword !== confirmPassword) {
-      alert("새 비밀번호가 일치하지 않습니다.")
-      return
-    }
-    alert("비밀번호가 변경되었습니다.")
-    setCurrentPassword("")
-    setNewPassword("")
-    setConfirmPassword("")
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="max-w-2xl">
+          <div className="p-8 text-center text-sm text-gray-500">
+            로딩 중...
+          </div>
+        </div>
+      </AppLayout>
+    )
   }
 
   return (
@@ -43,7 +142,7 @@ export default function MyPage() {
               </label>
               <input
                 type="email"
-                value="admin@kcii.go.kr"
+                value={email}
                 disabled
                 className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm bg-gray-50 text-gray-500"
               />
@@ -83,59 +182,22 @@ export default function MyPage() {
             </div>
             <button
               onClick={handleProfileSave}
-              className="px-4 py-2 bg-primary-700 text-white rounded-md text-sm font-medium hover:bg-primary-800 transition-colors"
+              disabled={saving}
+              className="px-4 py-2 bg-primary-700 text-white rounded-md text-sm font-medium hover:bg-primary-800 transition-colors disabled:opacity-50"
             >
-              프로필 저장
+              {saving ? "저장 중..." : "프로필 저장"}
             </button>
           </div>
         </div>
 
-        {/* 비밀번호 변경 */}
+        {/* 인증 안내 */}
         <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 mb-6">
-          <h3 className="text-base font-semibold text-gray-900 mb-4">
-            비밀번호 변경
+          <h3 className="text-base font-semibold text-gray-900 mb-2">
+            로그인 방식
           </h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                현재 비밀번호
-              </label>
-              <input
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                새 비밀번호
-              </label>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                새 비밀번호 확인
-              </label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              />
-            </div>
-            <button
-              onClick={handlePasswordChange}
-              className="px-4 py-2 bg-primary-700 text-white rounded-md text-sm font-medium hover:bg-primary-800 transition-colors"
-            >
-              비밀번호 변경
-            </button>
-          </div>
+          <p className="text-sm text-gray-600">
+            이 서비스는 Magic Link 방식으로 로그인합니다. 로그인 시 이메일로 발송되는 링크를 클릭하여 접속할 수 있습니다. 별도의 비밀번호 설정이 필요하지 않습니다.
+          </p>
         </div>
 
         {/* 내 업로드 통계 */}

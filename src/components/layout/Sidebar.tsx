@@ -1,8 +1,11 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { FileSearch, Settings, User, LogOut, ExternalLink } from "lucide-react"
+import { isSupabaseConfigured, createClient } from "@/lib/supabase/client"
+import type { UserRole } from "@/types"
 
 const topMenuItems = [
   { href: "/works", label: "검사하기", icon: FileSearch },
@@ -13,19 +16,68 @@ const externalLinks = [
   { href: "https://www.kcisa.kr/", label: "한국문화정보원" },
 ]
 
-const bottomMenuItems = [
-  { href: "/admin/users", label: "관리자", icon: Settings },
-  { href: "/mypage", label: "마이페이지", icon: User },
-]
-
 export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const [userRole, setUserRole] = useState<UserRole>("user")
 
-  const handleLogout = () => {
-    localStorage.removeItem("user")
+  useEffect(() => {
+    if (isSupabaseConfigured()) {
+      const fetchRole = async () => {
+        try {
+          const supabase = createClient()
+          const {
+            data: { user },
+          } = await supabase.auth.getUser()
+          if (user) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("role")
+              .eq("id", user.id)
+              .single()
+            if (profile?.role) {
+              setUserRole(profile.role as UserRole)
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+      fetchRole()
+    } else {
+      try {
+        const stored = localStorage.getItem("user")
+        if (stored) {
+          const user = JSON.parse(stored)
+          if (user.role) setUserRole(user.role)
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, [])
+
+  const handleLogout = async () => {
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = createClient()
+        await supabase.auth.signOut()
+      } catch {
+        // ignore
+      }
+    } else {
+      localStorage.removeItem("user")
+    }
     router.push("/login")
   }
+
+  // 관리자 메뉴 표시 여부
+  const bottomMenuItems = [
+    ...(userRole === "admin"
+      ? [{ href: "/admin/users", label: "관리자", icon: Settings }]
+      : []),
+    { href: "/mypage", label: "마이페이지", icon: User },
+  ]
 
   return (
     <aside className="w-60 min-h-screen bg-primary-900 text-white flex flex-col">
