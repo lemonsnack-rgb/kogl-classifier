@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams } from "next/navigation"
 import Link from "next/link"
 import AppLayout from "@/components/layout/AppLayout"
 import { getContractById } from "@/lib/mock/data"
@@ -9,12 +9,12 @@ import { KOGL_TYPES, STATUS_META } from "@/types"
 import type { KoglType, ContractStatus, ClauseType, Work } from "@/types"
 import {
   Download,
-  ChevronDown,
-  ChevronRight,
   ArrowLeft,
-  Edit,
   FileText,
   Pencil,
+  X,
+  Save,
+  Check,
 } from "lucide-react"
 
 const CLAUSE_TYPE_LABELS: Record<ClauseType, string> = {
@@ -119,20 +119,27 @@ function handleFileDownload() {
 
 export default function WorkDetailPage() {
   const params = useParams()
-  const router = useRouter()
   const id = params.id as string
   const contract = getContractById(id)
 
-  // 모든 아코디언 접힌 상태로 시작
-  const [openAccordions, setOpenAccordions] = useState<
-    Record<number, boolean>
-  >({})
+  const [selectedWorkIdx, setSelectedWorkIdx] = useState<number | null>(null)
+  const [editingType, setEditingType] = useState(false)
+  const [editingMeta, setEditingMeta] = useState(false)
+
+  // 공공누리 유형 인라인 수정 상태
+  const [editTypeValue, setEditTypeValue] = useState<KoglType | "">(
+    contract?.gongnuri_type ?? ""
+  )
+  const [editTypeReason, setEditTypeReason] = useState("")
+
+  // 메타데이터 인라인 수정 상태
+  const [metaForm, setMetaForm] = useState<Record<string, string>>({})
 
   if (!contract) {
     return (
       <AppLayout>
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center py-20">
+        <div className="flex items-center justify-center h-[calc(100vh-48px)]">
+          <div className="text-center">
             <p className="text-gray-400 text-lg">데이터가 없습니다.</p>
             <Link
               href="/works"
@@ -148,251 +155,549 @@ export default function WorkDetailPage() {
 
   const works = contract.works ?? []
   const clauses = contract.clauses ?? []
+  const selectedWork =
+    selectedWorkIdx !== null ? works[selectedWorkIdx] : null
 
-  function toggleAccordion(idx: number) {
-    setOpenAccordions((prev) => ({ ...prev, [idx]: !prev[idx] }))
+  function startEditType() {
+    setEditTypeValue(contract!.gongnuri_type ?? "")
+    setEditTypeReason("")
+    setEditingType(true)
+  }
+
+  function cancelEditType() {
+    setEditingType(false)
+    setEditTypeValue(contract!.gongnuri_type ?? "")
+    setEditTypeReason("")
+  }
+
+  function saveEditType() {
+    alert("유형이 저장되었습니다")
+    setEditingType(false)
+  }
+
+  function startEditMeta() {
+    if (!selectedWork) return
+    setMetaForm({
+      work_name: selectedWork.work_name ?? "",
+      work_type: selectedWork.work_type ?? "",
+      digital_format: selectedWork.digital_format ?? "",
+      description: selectedWork.description ?? "",
+      keywords: selectedWork.keywords?.join(", ") ?? "",
+      language: selectedWork.language ?? "",
+      created_date: selectedWork.created_date ?? "",
+      creator: selectedWork.creator ?? "",
+      copyright_period: selectedWork.copyright_period ?? "",
+      usage_scope: selectedWork.usage_scope ?? "",
+    })
+    setEditingMeta(true)
+  }
+
+  function cancelEditMeta() {
+    setEditingMeta(false)
+    setMetaForm({})
+  }
+
+  function saveEditMeta() {
+    alert("저장되었습니다")
+    setEditingMeta(false)
+    setMetaForm({})
+  }
+
+  function handleSelectWork(idx: number) {
+    setSelectedWorkIdx(idx)
+    setEditingMeta(false)
   }
 
   return (
     <AppLayout>
-      <div className="max-w-5xl mx-auto">
-        {/* 뒤로가기 */}
-        <div className="flex items-center justify-between mb-5">
+      <div className="flex h-[calc(100vh-24px)]">
+        {/* ====== 좌측 패널 ====== */}
+        <div className="w-[400px] flex-shrink-0 h-[calc(100vh-24px)] overflow-y-auto border-r border-gray-200 bg-white px-5 py-4">
+          {/* 목록으로 */}
           <Link
             href="/works"
-            className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
+            className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-4"
           >
             <ArrowLeft className="w-4 h-4" />
             목록으로
           </Link>
-        </div>
 
-        {/* ======== 검사제목 ======== */}
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">
-          {contract.inspection_title
-            ?? contract.contract_filename
-            ?? "검사 결과"}
-        </h1>
+          {/* 검사제목 */}
+          <h1 className="text-xl font-bold text-gray-900 mb-6">
+            {contract.inspection_title ??
+              contract.contract_filename ??
+              "검사 결과"}
+          </h1>
 
-        {/* ======== 계약서 정보 카드 ======== */}
-        <section className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            계약서 정보
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-6 text-sm">
-            <InfoField
+          {/* ── 계약서 정보 섹션 ── */}
+          <SectionDivider title="계약서 정보" />
+          <div className="space-y-2.5 mb-6">
+            <LeftField
               label="파일명"
               value={
                 contract.contract_filename ? (
                   <span className="inline-flex items-center gap-1.5">
-                    {contract.contract_filename}
+                    <span className="truncate max-w-[220px]">
+                      {contract.contract_filename}
+                    </span>
                     <button
                       onClick={handleFileDownload}
-                      className="text-gray-400 hover:text-primary-600 transition-colors"
+                      className="text-gray-400 hover:text-primary-600 transition-colors flex-shrink-0"
                       title="다운로드"
                     >
                       <Download className="w-3.5 h-3.5" />
                     </button>
                   </span>
                 ) : (
-                  "(파일 없음)"
+                  <EmptyValue />
                 )
               }
             />
-            <InfoField label="등록일" value={formatDate(contract.created_at)} />
-            <InfoField label="등록자" value="홍길동 (mock)" />
-            <InfoField
+            <LeftField
+              label="등록일"
+              value={formatDate(contract.created_at)}
+            />
+            <LeftField label="등록자" value="홍길동 (mock)" />
+            <LeftField
               label="상태"
               value={<StatusBadge status={contract.status} />}
             />
-            <InfoField
+            <LeftField
               label="자체제작 여부"
               value={contract.is_institution_made ? "자체 제작" : "외부 위탁"}
             />
           </div>
-        </section>
 
-        {/* ======== 공공누리 유형 분류 결과 카드 ======== */}
-        <section className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg font-semibold text-gray-900">
-              공공누리 유형 분류 결과
-            </h2>
-            <Link
-              href={`/works/${id}/edit?mode=type`}
-              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-primary-600 border border-primary-200 rounded-md hover:bg-primary-50 transition-colors"
-            >
-              <Edit className="w-3.5 h-3.5" />
-              유형 수정
-            </Link>
+          {/* ── 공공누리 유형 분류 결과 섹션 ── */}
+          <div className="flex items-center justify-between mb-3">
+            <SectionDivider title="공공누리 유형" />
+            {!editingType && contract.gongnuri_type && (
+              <button
+                onClick={startEditType}
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-primary-600 border border-primary-200 rounded hover:bg-primary-50 transition-colors"
+              >
+                <Pencil className="w-3 h-3" />
+                수정
+              </button>
+            )}
           </div>
 
-          {contract.gongnuri_type ? (
-            <>
-              {/* KOGL 유형 이미지 + 유형명/설명/신뢰도 수평 배치 */}
-              <div className="flex items-start gap-6 mb-6">
-                {/* 공공누리마크 이미지 (좌측 크게) */}
+          {editingType ? (
+            /* 인라인 수정 모드 */
+            <div className="mb-6 space-y-3">
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">
+                  유형 선택
+                </label>
+                <select
+                  value={editTypeValue}
+                  onChange={(e) =>
+                    setEditTypeValue(e.target.value as KoglType | "")
+                  }
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value="">선택하세요</option>
+                  {(
+                    Object.keys(KOGL_TYPES) as KoglType[]
+                  ).map((k) => (
+                    <option key={k} value={k}>
+                      {KOGL_TYPES[k].label} - {KOGL_TYPES[k].description}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">
+                  수정 사유
+                </label>
+                <textarea
+                  value={editTypeReason}
+                  onChange={(e) => setEditTypeReason(e.target.value)}
+                  rows={3}
+                  placeholder="수정 사유를 입력하세요"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={saveEditType}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 transition-colors"
+                >
+                  <Save className="w-3 h-3" />
+                  저장
+                </button>
+                <button
+                  onClick={cancelEditType}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  <X className="w-3 h-3" />
+                  취소
+                </button>
+              </div>
+            </div>
+          ) : contract.gongnuri_type ? (
+            <div className="mb-6">
+              {/* KOGL 이미지 + 유형 */}
+              <div className="flex items-center gap-3 mb-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={getKoglImageSrc(contract.gongnuri_type)}
                   alt={`공공누리 ${KOGL_TYPES[contract.gongnuri_type].label}`}
-                  className="h-[80px] w-auto object-contain rounded flex-shrink-0"
+                  className="h-[56px] w-auto object-contain rounded flex-shrink-0"
                 />
-
-                {/* 우측: 유형명 + 설명 + 신뢰도 */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-1">
-                    <KoglBadgeLarge type={contract.gongnuri_type} />
-                  </div>
-                  <p className="text-sm text-gray-600 mb-3">
+                <div>
+                  <KoglBadge type={contract.gongnuri_type} />
+                  <p className="text-xs text-gray-500 mt-1">
                     {KOGL_TYPES[contract.gongnuri_type].description}
                   </p>
-
-                  {/* 신뢰도 */}
-                  <p className="text-xs text-gray-500 mb-1.5">신뢰도</p>
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${(contract.gongnuri_confidence ?? 0) * 100}%`,
-                          backgroundColor:
-                            KOGL_TYPES[contract.gongnuri_type].color,
-                        }}
-                      />
-                    </div>
-                    <span className="text-sm font-semibold text-gray-700 tabular-nums">
-                      {((contract.gongnuri_confidence ?? 0) * 100).toFixed(1)}%
-                    </span>
-                  </div>
-
-                  {/* Top-K */}
-                  {contract.gongnuri_top_k && (
-                    <div className="mt-3 space-y-1">
-                      {contract.gongnuri_top_k.map((item) => (
-                        <div
-                          key={item.label}
-                          className="flex items-center gap-2 text-xs text-gray-500"
-                        >
-                          <span className="w-14 font-medium">
-                            {KOGL_TYPES[item.label as KoglType]?.label ??
-                              item.label}
-                          </span>
-                          <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div
-                              className="h-full rounded-full"
-                              style={{
-                                width: `${item.score * 100}%`,
-                                backgroundColor:
-                                  KOGL_TYPES[item.label as KoglType]?.color ??
-                                  "#9CA3AF",
-                              }}
-                            />
-                          </div>
-                          <span className="w-12 text-right tabular-nums">
-                            {(item.score * 100).toFixed(1)}%
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </div>
 
-              {/* 판단 근거 섹션 */}
+              {/* 신뢰도 */}
+              <div className="mb-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-gray-400">신뢰도</span>
+                  <span className="text-sm font-semibold text-gray-700 tabular-nums">
+                    {((contract.gongnuri_confidence ?? 0) * 100).toFixed(1)}%
+                  </span>
+                </div>
+                <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${(contract.gongnuri_confidence ?? 0) * 100}%`,
+                      backgroundColor:
+                        KOGL_TYPES[contract.gongnuri_type].color,
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* 판단 근거 */}
               {clauses.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
-                    <FileText className="w-4 h-4 text-gray-400" />
-                    판단 근거 조항
-                  </h3>
-                  <div className="space-y-4">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <FileText className="w-3.5 h-3.5 text-gray-400" />
+                    <span className="text-xs text-gray-400">판단 근거 조항</span>
+                  </div>
+                  <div className="space-y-2">
                     {clauses.map((clause) => (
                       <div
                         key={clause.id}
-                        className="border border-gray-100 rounded-lg p-4"
+                        className="border border-gray-100 rounded-lg p-3"
                       >
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center justify-between mb-1.5">
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-50 text-primary-700">
                             {CLAUSE_TYPE_LABELS[clause.clause_type] ??
                               clause.clause_type}
                           </span>
                           <span className="text-xs text-gray-400 tabular-nums">
-                            매칭 점수{" "}
-                            <span className="font-semibold text-gray-600">
-                              {(clause.match_score * 100).toFixed(0)}%
-                            </span>
+                            {(clause.match_score * 100).toFixed(0)}%
                           </span>
                         </div>
-                        {/* 인용문 */}
-                        <blockquote className="border-l-4 border-accent-500 bg-accent-50 pl-4 py-2 my-2 text-sm italic text-gray-700 leading-relaxed">
+                        <blockquote className="border-l-2 border-accent-500 bg-accent-50 pl-3 py-1.5 text-xs italic text-gray-600 leading-relaxed">
                           &ldquo;{clause.clause_text}&rdquo;
                         </blockquote>
-                        <div className="flex gap-4 text-xs text-gray-400 mt-2">
-                          {clause.page_number != null && (
-                            <span>페이지 {clause.page_number}</span>
-                          )}
-                          {clause.char_start != null &&
-                            clause.char_end != null && (
-                              <span>
-                                문자 위치 {clause.char_start}~{clause.char_end}
-                              </span>
-                            )}
-                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
-            </>
+            </div>
           ) : (
-            <p className="text-gray-400 text-sm">
-              아직 분류 결과가 없습니다.
+            <p className="text-sm text-gray-300 italic mb-6">
+              분류 결과 없음
             </p>
           )}
-        </section>
 
-        {/* ======== 저작물 메타데이터 목록 카드 ======== */}
-        <section className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg font-semibold text-gray-900">
-              저작물 메타데이터
-              <span className="ml-2 text-sm font-normal text-gray-400">
-                ({works.length}건)
-              </span>
-            </h2>
-            <div className="flex items-center gap-2">
-              {/* 엑셀 다운로드 버튼 */}
-              <button
-                onClick={() =>
-                  downloadCsv(works, contract.contract_filename)
-                }
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                <Download className="w-3.5 h-3.5" />
-                엑셀 다운로드
-              </button>
-            </div>
-          </div>
-
+          {/* ── 저작물 목록 섹션 ── */}
+          <SectionDivider title={`저작물 목록 (${works.length}건)`} />
           {works.length === 0 ? (
-            <p className="text-gray-400 text-sm">등록된 저작물이 없습니다.</p>
+            <p className="text-sm text-gray-300 italic">
+              등록된 저작물이 없습니다.
+            </p>
           ) : (
-            <div className="space-y-3">
-              {works.map((work, idx) => (
-                <WorkAccordion
-                  key={work.id}
-                  work={work}
-                  contractId={id}
-                  contractFilename={contract.contract_filename}
-                  index={idx}
-                  isOpen={!!openAccordions[idx]}
-                  onToggle={() => toggleAccordion(idx)}
-                />
-              ))}
+            <div className="space-y-1 mb-6">
+              {works.map((work, idx) => {
+                const isSelected = selectedWorkIdx === idx
+                return (
+                  <button
+                    key={work.id}
+                    onClick={() => handleSelectWork(idx)}
+                    className={`w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-colors relative ${
+                      isSelected
+                        ? "bg-primary-50 border border-primary-200"
+                        : "hover:bg-gray-50 border border-transparent"
+                    }`}
+                  >
+                    {isSelected && (
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-primary-600 rounded-r" />
+                    )}
+                    <span
+                      className={`inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold flex-shrink-0 ${
+                        isSelected
+                          ? "bg-primary-600 text-white"
+                          : "bg-gray-200 text-gray-600"
+                      }`}
+                    >
+                      {idx + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-900 font-medium truncate">
+                        {work.work_name ?? work.work_filename}
+                      </p>
+                    </div>
+                    {work.work_type && (
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 flex-shrink-0">
+                        {WORK_TYPE_LABELS[work.work_type] ?? work.work_type}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
             </div>
           )}
-        </section>
+
+          {/* 엑셀 다운로드 */}
+          <button
+            onClick={() =>
+              downloadCsv(works, contract.contract_filename)
+            }
+            className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            엑셀 다운로드
+          </button>
+        </div>
+
+        {/* ====== 우측 패널 ====== */}
+        <div className="flex-1 h-[calc(100vh-24px)] overflow-y-auto bg-gray-50 px-8 py-6">
+          {selectedWork === null ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                  <FileText className="w-7 h-7 text-gray-300" />
+                </div>
+                <p className="text-sm text-gray-400">
+                  좌측에서 저작물을 선택하세요
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div>
+              {/* 헤더: 번호 + 제목 + 수정/취소 버튼 */}
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-bold text-gray-900">
+                  <span className="text-primary-600">
+                    #{(selectedWorkIdx ?? 0) + 1}
+                  </span>{" "}
+                  {selectedWork.work_name ?? selectedWork.work_filename}
+                </h2>
+                {!editingMeta ? (
+                  <button
+                    onClick={startEditMeta}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-primary-600 border border-primary-200 rounded-md hover:bg-primary-50 transition-colors"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    수정
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={saveEditMeta}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 transition-colors"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      저장
+                    </button>
+                    <button
+                      onClick={cancelEditMeta}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      취소
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* 저작물정보 섹션 */}
+              <MetaSection title="저작물정보" color="blue">
+                <div className="grid grid-cols-2 gap-y-4 gap-x-6">
+                  <MetaField
+                    label="저작물명"
+                    value={selectedWork.work_name}
+                    editing={editingMeta}
+                    editValue={metaForm.work_name}
+                    onChange={(v) =>
+                      setMetaForm((p) => ({ ...p, work_name: v }))
+                    }
+                  />
+                  <MetaField
+                    label="유형"
+                    value={
+                      selectedWork.work_type
+                        ? (WORK_TYPE_LABELS[selectedWork.work_type] ??
+                          selectedWork.work_type)
+                        : null
+                    }
+                    editing={editingMeta}
+                    editValue={metaForm.work_type}
+                    editType="select"
+                    selectOptions={[
+                      { value: "", label: "선택" },
+                      { value: "image", label: "이미지" },
+                      { value: "text", label: "텍스트" },
+                      { value: "audio", label: "오디오" },
+                      { value: "video", label: "영상" },
+                    ]}
+                    onChange={(v) =>
+                      setMetaForm((p) => ({ ...p, work_type: v }))
+                    }
+                  />
+                  <MetaField
+                    label="디지털화형태"
+                    value={selectedWork.digital_format}
+                    editing={editingMeta}
+                    editValue={metaForm.digital_format}
+                    onChange={(v) =>
+                      setMetaForm((p) => ({ ...p, digital_format: v }))
+                    }
+                  />
+                  <MetaField
+                    label="설명"
+                    value={selectedWork.description}
+                    editing={editingMeta}
+                    editValue={metaForm.description}
+                    onChange={(v) =>
+                      setMetaForm((p) => ({ ...p, description: v }))
+                    }
+                  />
+                  <MetaField
+                    label="주제어"
+                    value={selectedWork.keywords?.join(", ") || null}
+                    editing={editingMeta}
+                    editValue={metaForm.keywords}
+                    onChange={(v) =>
+                      setMetaForm((p) => ({ ...p, keywords: v }))
+                    }
+                    placeholder="쉼표로 구분"
+                  />
+                  <MetaField
+                    label="언어"
+                    value={selectedWork.language}
+                    editing={editingMeta}
+                    editValue={metaForm.language}
+                    onChange={(v) =>
+                      setMetaForm((p) => ({ ...p, language: v }))
+                    }
+                  />
+                  <MetaField
+                    label="제작일"
+                    value={selectedWork.created_date}
+                    editing={editingMeta}
+                    editValue={metaForm.created_date}
+                    onChange={(v) =>
+                      setMetaForm((p) => ({ ...p, created_date: v }))
+                    }
+                  />
+                  <MetaField
+                    label="계약서"
+                    value={
+                      contract.contract_filename ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          {contract.contract_filename}
+                          <button
+                            onClick={handleFileDownload}
+                            className="text-gray-400 hover:text-primary-600 transition-colors"
+                            title="다운로드"
+                          >
+                            <Download className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ) : null
+                    }
+                    editing={false}
+                  />
+                </div>
+              </MetaSection>
+
+              {/* 저작자정보 섹션 */}
+              <MetaSection title="저작자정보" color="green">
+                <div className="grid grid-cols-2 gap-y-4 gap-x-6">
+                  <MetaField
+                    label="저작권자"
+                    value={selectedWork.creator}
+                    editing={editingMeta}
+                    editValue={metaForm.creator}
+                    onChange={(v) =>
+                      setMetaForm((p) => ({ ...p, creator: v }))
+                    }
+                  />
+                  <MetaField
+                    label="공동저작자"
+                    value={null}
+                    editing={false}
+                  />
+                  <MetaField
+                    label="저작인접권자"
+                    value={null}
+                    editing={false}
+                  />
+                </div>
+              </MetaSection>
+
+              {/* 권리정보 섹션 */}
+              <MetaSection title="권리정보" color="amber">
+                <div className="grid grid-cols-2 gap-y-4 gap-x-6">
+                  <MetaField label="공개유형" value={null} editing={false} />
+                  <MetaField label="저작물성" value={null} editing={false} />
+                  <MetaField
+                    label="비보호저작물"
+                    value={null}
+                    editing={false}
+                  />
+                  <MetaField
+                    label="업무상저작물"
+                    value={null}
+                    editing={false}
+                  />
+                  <MetaField
+                    label="상업적이용허락"
+                    value={selectedWork.usage_scope}
+                    editing={editingMeta}
+                    editValue={metaForm.usage_scope}
+                    onChange={(v) =>
+                      setMetaForm((p) => ({ ...p, usage_scope: v }))
+                    }
+                  />
+                  <MetaField
+                    label="저작재산권"
+                    value={selectedWork.copyright_period}
+                    editing={editingMeta}
+                    editValue={metaForm.copyright_period}
+                    onChange={(v) =>
+                      setMetaForm((p) => ({ ...p, copyright_period: v }))
+                    }
+                  />
+                  <MetaField
+                    label="공동저작자동의"
+                    value={
+                      selectedWork.contract_metadata?.consent_status ?? null
+                    }
+                    editing={false}
+                  />
+                  <MetaField
+                    label="유효기간"
+                    value={selectedWork.copyright_period}
+                    editing={false}
+                  />
+                  <MetaField label="초상권" value={null} editing={false} />
+                </div>
+              </MetaSection>
+            </div>
+          )}
+        </div>
       </div>
     </AppLayout>
   )
@@ -402,7 +707,20 @@ export default function WorkDetailPage() {
    Sub Components
 ==================================================== */
 
-function InfoField({
+/** 좌측 패널 섹션 구분선 + 섹션명 */
+function SectionDivider({ title }: { title: string }) {
+  return (
+    <div className="mb-3">
+      <div className="border-t border-gray-200 mb-2" />
+      <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+        {title}
+      </span>
+    </div>
+  )
+}
+
+/** 좌측 패널 필드 (label + value 세로 배치) */
+function LeftField({
   label,
   value,
 }: {
@@ -410,18 +728,26 @@ function InfoField({
   value: React.ReactNode
 }) {
   return (
-    <div>
-      <p className="text-xs text-gray-400 mb-0.5">{label}</p>
-      <div className="text-sm text-gray-800 font-medium">{value}</div>
+    <div className="flex items-baseline gap-3">
+      <span className="text-xs text-gray-400 w-20 flex-shrink-0">{label}</span>
+      <div className="text-sm text-gray-900 font-medium flex-1 min-w-0">
+        {value}
+      </div>
     </div>
   )
 }
 
-function KoglBadgeLarge({ type }: { type: KoglType }) {
+/** 미식별 빈 값 표시 */
+function EmptyValue() {
+  return <span className="text-sm text-gray-300 italic">미식별</span>
+}
+
+/** KOGL 뱃지 (소형) */
+function KoglBadge({ type }: { type: KoglType }) {
   const meta = KOGL_TYPES[type]
   return (
     <span
-      className="inline-flex items-center px-4 py-2 rounded-lg text-base font-bold text-white"
+      className="inline-flex items-center px-2.5 py-1 rounded text-sm font-bold text-white"
       style={{ backgroundColor: meta.color }}
     >
       {meta.label}
@@ -429,11 +755,12 @@ function KoglBadgeLarge({ type }: { type: KoglType }) {
   )
 }
 
+/** 상태 뱃지 */
 function StatusBadge({ status }: { status: ContractStatus }) {
   const meta = STATUS_META[status]
   return (
     <span
-      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
       style={{
         backgroundColor: meta.color + "18",
         color: meta.color,
@@ -448,230 +775,97 @@ function StatusBadge({ status }: { status: ContractStatus }) {
   )
 }
 
-/** 값이 없으면 회색 "미식별" 표시 */
-function MetaValue({ value }: { value: React.ReactNode }) {
-  if (
-    value === null ||
-    value === undefined ||
-    value === "" ||
-    value === "-"
-  ) {
-    return <span className="text-gray-400 italic">미식별</span>
+/** 우측 패널 메타데이터 섹션 래퍼 */
+function MetaSection({
+  title,
+  color,
+  children,
+}: {
+  title: string
+  color: "blue" | "green" | "amber"
+  children: React.ReactNode
+}) {
+  const colorMap = {
+    blue: {
+      border: "border-blue-100",
+      bg: "bg-blue-50/50",
+      title: "text-blue-800",
+    },
+    green: {
+      border: "border-green-100",
+      bg: "bg-green-50/50",
+      title: "text-green-800",
+    },
+    amber: {
+      border: "border-amber-100",
+      bg: "bg-amber-50/50",
+      title: "text-amber-800",
+    },
   }
-  return <>{value}</>
+  const c = colorMap[color]
+  return (
+    <div className={`rounded-lg border ${c.border} ${c.bg} p-5 mb-4`}>
+      <h3 className={`text-sm font-semibold ${c.title} mb-4`}>{title}</h3>
+      {children}
+    </div>
+  )
 }
 
-function WorkAccordion({
-  work,
-  contractId,
-  contractFilename,
-  index,
-  isOpen,
-  onToggle,
+/** 우측 패널 메타데이터 필드 (읽기/수정 겸용) */
+function MetaField({
+  label,
+  value,
+  editing = false,
+  editValue,
+  editType = "input",
+  selectOptions,
+  placeholder,
+  onChange,
 }: {
-  work: Work
-  contractId: string
-  contractFilename: string | null
-  index: number
-  isOpen: boolean
-  onToggle: () => void
+  label: string
+  value: React.ReactNode
+  editing?: boolean
+  editValue?: string
+  editType?: "input" | "select"
+  selectOptions?: { value: string; label: string }[]
+  placeholder?: string
+  onChange?: (v: string) => void
 }) {
-  const meta = work.contract_metadata
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden">
-      {/* 헤더 */}
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
-      >
-        <div className="flex items-center gap-3">
-          <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-primary-100 text-primary-700 text-xs font-bold">
-            {index + 1}
-          </span>
-          <span className="text-sm font-medium text-gray-800">
-            {work.work_filename}
-          </span>
-          {work.work_type && (
-            <span className="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-600">
-              {WORK_TYPE_LABELS[work.work_type] ?? work.work_type}
-            </span>
-          )}
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              handleFileDownload()
-            }}
-            className="text-gray-400 hover:text-primary-600 transition-colors"
-            title="파일 다운로드"
+    <div>
+      <p className="text-xs text-gray-400 mb-1">{label}</p>
+      {editing && onChange ? (
+        editType === "select" && selectOptions ? (
+          <select
+            value={editValue ?? ""}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
           >
-            <Download className="w-3.5 h-3.5" />
-          </button>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* 개별 저작물 메타데이터 수정 버튼 */}
-          <Link
-            href={`/works/${contractId}/edit?mode=metadata&work=${work.id}`}
-            onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-primary-600 border border-primary-200 rounded hover:bg-primary-50 transition-colors"
-          >
-            <Pencil className="w-3 h-3" />
-            수정
-          </Link>
-          {isOpen ? (
-            <ChevronDown className="w-4 h-4 text-gray-400" />
+            {selectOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            type="text"
+            value={editValue ?? ""}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            className="w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+          />
+        )
+      ) : (
+        <div className="text-sm text-gray-900 font-medium">
+          {value === null ||
+          value === undefined ||
+          value === "" ||
+          value === "-" ? (
+            <EmptyValue />
           ) : (
-            <ChevronRight className="w-4 h-4 text-gray-400" />
+            value
           )}
-        </div>
-      </button>
-
-      {/* 본문 - 3개 섹션으로 명확히 구분 */}
-      {isOpen && (
-        <div className="px-4 py-4 space-y-4 text-sm">
-          {/* 저작물정보 섹션 */}
-          <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-4">
-            <h4 className="text-sm font-semibold text-blue-800 mb-3">
-              저작물정보
-            </h4>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-6">
-              <InfoField
-                label="저작물명"
-                value={<MetaValue value={work.work_name} />}
-              />
-              <InfoField
-                label="유형"
-                value={
-                  <MetaValue
-                    value={
-                      work.work_type
-                        ? (WORK_TYPE_LABELS[work.work_type] ?? work.work_type)
-                        : null
-                    }
-                  />
-                }
-              />
-              <InfoField
-                label="디지털화형태"
-                value={<MetaValue value={work.digital_format} />}
-              />
-              <InfoField
-                label="설명"
-                value={<MetaValue value={work.description} />}
-              />
-              <InfoField
-                label="주제어"
-                value={
-                  work.keywords && work.keywords.length > 0 ? (
-                    <div className="flex flex-wrap gap-1">
-                      {work.keywords.map((kw) => (
-                        <span
-                          key={kw}
-                          className="inline-flex px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs"
-                        >
-                          #{kw}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <MetaValue value={null} />
-                  )
-                }
-              />
-              <InfoField
-                label="언어"
-                value={<MetaValue value={work.language} />}
-              />
-              <InfoField
-                label="제작일"
-                value={<MetaValue value={work.created_date} />}
-              />
-              <InfoField
-                label="계약서"
-                value={
-                  contractFilename ? (
-                    <span className="inline-flex items-center gap-1.5">
-                      {contractFilename}
-                      <button
-                        onClick={handleFileDownload}
-                        className="text-gray-400 hover:text-primary-600 transition-colors"
-                        title="다운로드"
-                      >
-                        <Download className="w-3 h-3" />
-                      </button>
-                    </span>
-                  ) : (
-                    <MetaValue value={null} />
-                  )
-                }
-              />
-            </div>
-          </div>
-
-          {/* 저작자정보 섹션 */}
-          <div className="rounded-lg border border-green-100 bg-green-50/50 p-4">
-            <h4 className="text-sm font-semibold text-green-800 mb-3">
-              저작자정보
-            </h4>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-6">
-              <InfoField
-                label="저작권자"
-                value={<MetaValue value={work.creator} />}
-              />
-              <InfoField
-                label="공동저작자"
-                value={<MetaValue value={null} />}
-              />
-              <InfoField
-                label="저작인접권자"
-                value={<MetaValue value={null} />}
-              />
-            </div>
-          </div>
-
-          {/* 권리정보 섹션 */}
-          <div className="rounded-lg border border-amber-100 bg-amber-50/50 p-4">
-            <h4 className="text-sm font-semibold text-amber-800 mb-3">
-              권리정보
-            </h4>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-6">
-              <InfoField
-                label="공개유형"
-                value={<MetaValue value={null} />}
-              />
-              <InfoField
-                label="저작물성"
-                value={<MetaValue value={null} />}
-              />
-              <InfoField
-                label="비보호저작물"
-                value={<MetaValue value={null} />}
-              />
-              <InfoField
-                label="업무상저작물"
-                value={<MetaValue value={null} />}
-              />
-              <InfoField
-                label="상업적이용허락"
-                value={<MetaValue value={work.usage_scope} />}
-              />
-              <InfoField
-                label="저작재산권"
-                value={<MetaValue value={work.copyright_period} />}
-              />
-              <InfoField
-                label="공동저작자동의"
-                value={<MetaValue value={meta?.consent_status} />}
-              />
-              <InfoField
-                label="유효기간"
-                value={<MetaValue value={work.copyright_period} />}
-              />
-              <InfoField
-                label="초상권"
-                value={<MetaValue value={null} />}
-              />
-            </div>
-          </div>
         </div>
       )}
     </div>
