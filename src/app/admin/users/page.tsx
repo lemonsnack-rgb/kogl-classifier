@@ -141,12 +141,13 @@ export default function AdminUsersPage() {
         const { error: otpError } = await supabase.auth.signInWithOtp({
           email: inviteEmail,
           options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            emailRedirectTo: `${window.location.origin}/login/`,
           },
         })
 
         if (otpError) {
-          setInviteError(otpError.message)
+          console.error("OTP Error:", otpError)
+          setInviteError(`발송 실패: ${otpError.message} (${otpError.status ?? ""})`)
           setInviteLoading(false)
           return
         }
