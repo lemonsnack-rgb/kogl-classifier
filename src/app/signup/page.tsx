@@ -113,10 +113,7 @@ export default function SignupPage() {
             <div className="text-center">
               <div className="mb-4 px-4 py-3 bg-green-50 border border-green-200 rounded-md">
                 <p className="text-sm text-green-700 font-medium">
-                  가입이 완료되었습니다.
-                </p>
-                <p className="text-sm text-green-600 mt-1">
-                  관리자 승인 후 로그인할 수 있습니다.
+                  가입 신청이 완료되었습니다.
                 </p>
               </div>
               <Link
