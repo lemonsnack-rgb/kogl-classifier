@@ -1,76 +1,66 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { Suspense } from "react"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { isSupabaseConfigured, createClient } from "@/lib/supabase/client"
 
-function LoginForm() {
+export default function LoginPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
-
-  // Magic Link 콜백: URL에 code가 있으면 세션 교환
-  useEffect(() => {
-    const code = searchParams.get("code")
-    if (code && isSupabaseConfigured()) {
-      const exchangeCode = async () => {
-        setLoading(true)
-        try {
-          const supabase = createClient()
-          const { error } = await supabase.auth.exchangeCodeForSession(code)
-          if (!error) {
-            router.push("/works")
-            return
-          }
-          setError("인증에 실패했습니다. 다시 시도해주세요.")
-        } catch {
-          setError("인증 처리 중 오류가 발생했습니다.")
-        }
-        setLoading(false)
-      }
-      exchangeCode()
-    }
-  }, [searchParams, router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError("")
-    setSuccess("")
 
-    if (!email) {
-      setError("이메일을 입력해주세요.")
+    if (!email || !password) {
+      setError("이메일과 비밀번호를 입력해주세요.")
       setLoading(false)
       return
     }
 
     if (isSupabaseConfigured()) {
-      // Supabase 모드: Magic Link 발송
       try {
         const supabase = createClient()
-        const { error: authError } = await supabase.auth.signInWithOtp({
+        const { error: authError } = await supabase.auth.signInWithPassword({
           email,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-          },
+          password,
         })
+
         if (authError) {
-          setError(authError.message)
+          if (authError.message === "Invalid login credentials") {
+            setError("이메일 또는 비밀번호가 올바르지 않습니다.")
+          } else {
+            setError(authError.message)
+          }
           setLoading(false)
           return
         }
-        setSuccess(
-          "이메일을 확인해주세요. 로그인 링크가 발송되었습니다."
-        )
+
+        // 승인 여부 확인
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("approved")
+          .eq("email", email)
+          .single()
+
+        if (profile && !profile.approved) {
+          await supabase.auth.signOut()
+          setError("관리자 승인 대기 중입니다. 승인 후 로그인할 수 있습니다.")
+          setLoading(false)
+          return
+        }
+
+        router.push("/works")
       } catch {
-        setError("로그인 링크 발송 중 오류가 발생했습니다.")
+        setError("로그인 중 오류가 발생했습니다.")
       }
     } else {
-      // Mock 모드: 이메일만으로 로그인
+      // Mock 모드
       localStorage.setItem(
         "user",
         JSON.stringify({
@@ -109,12 +99,12 @@ function LoginForm() {
           {!isSupabaseConfigured() && (
             <div className="mb-4 px-3 py-2 bg-blue-50 border border-blue-200 rounded-md">
               <p className="text-xs text-blue-700">
-                데모 모드: 아무 이메일로 로그인할 수 있습니다.
+                데모 모드: 아무 이메일/비밀번호로 로그인할 수 있습니다.
               </p>
             </div>
           )}
 
-          {/* Magic Link 로그인 폼 */}
+          {/* 로그인 폼 */}
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label
@@ -134,15 +124,27 @@ function LoginForm() {
               />
             </div>
 
+            <div>
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                비밀번호
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="비밀번호를 입력하세요"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                required
+              />
+            </div>
+
             {error && (
               <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md">
                 {error}
-              </div>
-            )}
-
-            {success && (
-              <div className="text-sm text-green-600 bg-green-50 px-3 py-2 rounded-md">
-                {success}
               </div>
             )}
 
@@ -151,14 +153,20 @@ function LoginForm() {
               disabled={loading}
               className="w-full py-2.5 bg-primary-700 text-white rounded-md text-sm font-medium hover:bg-primary-800 transition-colors disabled:opacity-50"
             >
-              {loading ? "처리 중..." : "로그인 링크 발송"}
+              {loading ? "로그인 중..." : "로그인"}
             </button>
           </form>
 
-          {/* 하단 안내 */}
+          {/* 회원가입 링크 */}
           <div className="mt-4 text-center">
-            <p className="text-xs text-gray-400">
-              초대받은 사용자만 로그인할 수 있습니다
+            <p className="text-sm text-gray-500">
+              계정이 없으신가요?{" "}
+              <Link
+                href="/signup"
+                className="text-primary-700 font-medium hover:text-primary-800"
+              >
+                회원가입
+              </Link>
             </p>
           </div>
         </div>
@@ -169,17 +177,5 @@ function LoginForm() {
         </div>
       </div>
     </div>
-  )
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-sm text-gray-500">로딩 중...</p>
-      </div>
-    }>
-      <LoginForm />
-    </Suspense>
   )
 }
