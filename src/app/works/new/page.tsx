@@ -513,7 +513,7 @@ export default function WorksNewPage() {
                   ref={workInputRef}
                   type="file"
                   multiple
-                  accept=".pdf,.jpg,.jpeg,.png,.tiff,.tif,.mp3,.mp4,.doc,.docx,.hwp"
+                  accept=".pdf,.jpg,.jpeg,.png,.tiff,.tif"
                   onChange={handleWorkFileSelect}
                   className="hidden"
                 />
@@ -526,8 +526,7 @@ export default function WorksNewPage() {
                       파일을 드래그하여 놓거나 클릭하여 선택
                     </p>
                     <p className="text-xs text-gray-400 mt-1">
-                      PDF, JPG, PNG, TIFF, MP3, MP4, DOC, HWP 지원 (복수 선택
-                      가능)
+                      PDF, JPG, PNG, TIFF 지원 (복수 선택 가능)
                     </p>
                   </div>
                 </div>

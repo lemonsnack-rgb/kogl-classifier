@@ -184,7 +184,7 @@ function WorksPage() {
                   <FileText className="w-4.5 h-4.5 text-gray-500" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-base font-semibold text-gray-900 truncate">
+                  <p className="text-lg font-semibold text-gray-900 truncate">
                     {contract.inspection_title
                       ?? (contract.contract_filename
                         ? (contract.contract_filename.length > 20

@@ -231,7 +231,7 @@ export default function WorkDetailPage() {
         {/* ====== 하단: 좌우 2단 ====== */}
         <div className="flex flex-1 min-h-0">
         {/* ====== 좌측 패널 ====== */}
-        <div className="w-1/2 flex-shrink-0 overflow-y-auto border-r border-gray-200 bg-white px-6 py-5">
+        <div className="w-2/5 flex-shrink-0 overflow-y-auto border-r border-gray-200 bg-white px-6 py-5">
 
           {/* ── 계약서 정보 섹션 ── */}
           <SectionDivider title="계약서 기본정보" />
@@ -350,7 +350,7 @@ export default function WorkDetailPage() {
                 <img
                   src={getKoglImageSrc(contract.gongnuri_type)}
                   alt={`공공누리 ${KOGL_TYPES[contract.gongnuri_type].label}`}
-                  className="h-[56px] w-auto object-contain rounded flex-shrink-0"
+                  className="h-[72px] w-auto object-contain rounded flex-shrink-0"
                 />
                 <div className="flex items-center gap-3">
                   <KoglBadge type={contract.gongnuri_type} />
@@ -484,7 +484,7 @@ export default function WorkDetailPage() {
         </div>
 
         {/* ====== 우측 패널 ====== */}
-        <div className="w-1/2 overflow-y-auto bg-gray-50 px-8 py-5">
+        <div className="w-3/5 overflow-y-auto bg-gray-50 px-8 py-5">
           {selectedWork === null ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
@@ -783,7 +783,7 @@ function KoglBadge({ type }: { type: KoglType }) {
   const meta = KOGL_TYPES[type]
   return (
     <span
-      className="inline-flex items-center px-4 py-1.5 rounded-md text-base font-bold text-white"
+      className="inline-flex items-center px-3 py-1 rounded-md text-sm font-bold text-white"
       style={{ backgroundColor: meta.color }}
     >
       {meta.label}
