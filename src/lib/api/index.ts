@@ -23,6 +23,7 @@ export {
   downloadResult,
   checkHealth,
   mapSSUMetadataToDisplay,
+  mapSSUToWorkFields,
 } from "./ocr"
 
 // HMC API

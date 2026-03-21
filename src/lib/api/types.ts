@@ -51,6 +51,13 @@ export interface SSUExtractResponse {
   consolidation_fallback_used: boolean
 
   processing_time: number
+
+  // 에러 필드 (실제 API 응답에 포함될 수 있음)
+  error?: string
+  ner_error?: string
+  ner_model_key?: string
+  consolidation_error?: string
+  consolidation_model?: string
 }
 
 // 통합 검증 판정 (필드별)

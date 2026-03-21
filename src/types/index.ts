@@ -124,16 +124,30 @@ export interface Work {
   work_filename: string
   ocr_text: string | null
   ocr_status: OcrStatus
-  // 저작물 정보 메타데이터
-  work_name: string | null
-  work_type: WorkType | null
-  digital_format: string | null
-  description: string | null
-  keywords: string[] | null
-  language: string | null
-  created_date: string | null
-  creator: string | null
-  // 권리정보 메타데이터
+  // ── 저작물 정보 (8항목) ──
+  work_name: string | null // 1. 저작물명
+  work_type: WorkType | null // 2. 유형
+  digital_format: string | null // 3. 디지털화 형태
+  description: string | null // 4. 설명
+  keywords: string[] | null // 5. 주제어
+  language: string | null // 6. 언어
+  created_date: string | null // 7. 제작일
+  creator: string | null // 8. 계약서 (파일명 대체)
+  // ── 저작자 정보 (3항목) ──
+  copyright_holder: string | null // 9. 저작권자
+  co_authors: string | null // 10. 공동저작자
+  neighboring_rights_holder: string | null // 11. 저작인접권자
+  // ── 권리 정보 (9항목) ──
+  disclosure_type: string | null // 12. 공개유형
+  copyrightability: string | null // 13. 저작물성
+  non_protected_work: string | null // 14. 비보호저작물
+  work_for_hire: string | null // 15. 업무상저작물
+  commercial_use: string | null // 16. 상업적 이용허락
+  property_rights: string | null // 17. 저작재산권
+  co_author_consent: string | null // 18. 공동저작자 동의
+  validity_period: string | null // 19. 유효기간
+  portrait_rights: string | null // 20. 초상권
+  // ── 기존 호환 필드 ──
   copyright_period: string | null
   usage_scope: string | null
   usage_territory: string | null

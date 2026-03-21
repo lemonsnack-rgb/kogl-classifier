@@ -181,16 +181,12 @@ export async function checkHealth(): Promise<SSUHealthResponse> {
 }
 
 // ========================================
-// 숭실대 응답 메타데이터 → 우리 20개 항목 매핑
+// 숭실대 응답 메타데이터 → 표시용 키-값 변환
 // ========================================
-// 숭실대 API는 문서 유형별로 메타데이터 구조가 다르므로
-// Record<string, unknown>을 받아서 필요한 필드를 매핑합니다.
 export function mapSSUMetadataToDisplay(
   metadata: Record<string, unknown>
 ): Record<string, string | null> {
   const result: Record<string, string | null> = {}
-
-  // 메타데이터의 모든 키-값을 문자열로 변환하여 반환
   for (const [key, value] of Object.entries(metadata)) {
     if (value === null || value === undefined) {
       result[key] = null
@@ -200,8 +196,58 @@ export function mapSSUMetadataToDisplay(
       result[key] = String(value)
     }
   }
-
   return result
+}
+
+// ========================================
+// 숭실대 consolidated_metadata → Work 20개 항목 매핑
+// ========================================
+// 숭실대 API 응답 필드명은 문서 유형별로 다를 수 있으므로
+// 여러 후보 필드에서 값을 찾아 매핑합니다.
+export function mapSSUToWorkFields(
+  meta: Record<string, unknown>
+): Partial<import("@/types").Work> {
+  const str = (keys: string[]): string | null => {
+    for (const k of keys) {
+      const v = meta[k]
+      if (v !== null && v !== undefined) {
+        return typeof v === "object" ? JSON.stringify(v) : String(v)
+      }
+    }
+    return null
+  }
+
+  return {
+    // ── 저작물 정보 (8항목) ──
+    work_name: str(["work_title", "work_name", "copyright_kotitle"]),
+    work_type: null, // work_type은 enum이라 별도 매핑 필요
+    digital_format: str(["digital_format", "copyright_status"]),
+    description: str(["description", "copyright_explain"]),
+    keywords: meta.keyword ? [String(meta.keyword)] : meta.keywords ? [String(meta.keywords)] : null,
+    language: str(["language"]),
+    created_date: str(["created_date", "production_date", "copyright_date", "consent_date"]),
+    creator: str(["copyright_holder", "rights_holder", "ch_co_name"]),
+
+    // ── 저작자 정보 (3항목) ──
+    copyright_holder: str(["copyright_holder", "rights_holder", "ch_co_name", "data_controller"]),
+    co_authors: str(["co_author", "co_authors", "ch_ja_name"]),
+    neighboring_rights_holder: str(["neighboring_rights_holder", "ch_nr_name"]),
+
+    // ── 권리 정보 (9항목) ──
+    disclosure_type: str(["disclosure_type", "kogl_type", "ri_info"]),
+    copyrightability: str(["copyrightability"]),
+    non_protected_work: str(["non_protected_work", "unprotected_work"]),
+    work_for_hire: str(["work_for_hire"]),
+    commercial_use: str(["commercial_use", "granted_rights"]),
+    property_rights: str(["property_rights", "economic_rights", "ri_copyright"]),
+    co_author_consent: str(["co_author_consent", "consent_status"]),
+    validity_period: str(["validity_period", "valid_period", "ri_period", "retention_period"]),
+    portrait_rights: str(["portrait_rights"]),
+
+    // 기존 호환
+    copyright_period: str(["validity_period", "valid_period", "ri_period"]),
+    usage_scope: str(["commercial_use", "granted_rights"]),
+  }
 }
 
 // ========================================
