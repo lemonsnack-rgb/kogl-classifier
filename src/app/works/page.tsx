@@ -82,10 +82,11 @@ function WorksPage() {
 
         if (error) {
           console.error("계약서 로드 실패:", error.message)
-          setAllContracts(getContracts()) // 실패 시 Mock fallback
+          setAllContracts(getContracts())
         } else {
-          // DB 데이터가 없으면 Mock, 있으면 실제 데이터
-          setAllContracts(data.length > 0 ? data : getContracts())
+          // DB 실제 데이터 + Mock 데이터 합산
+          const mockContracts = getContracts()
+          setAllContracts([...data, ...mockContracts])
         }
       } catch {
         setAllContracts(getContracts())
