@@ -135,6 +135,12 @@ export default function WorksNewPage() {
     }
   }
 
+  // 파일명을 Storage 안전 키로 변환
+  const safeFileName = (name: string) => {
+    const ext = name.split(".").pop() || "pdf"
+    return `${crypto.randomUUID()}.${ext}`
+  }
+
   const handleSubmit = async () => {
     setIsSubmitting(true)
     setUploadError(null)
@@ -157,7 +163,7 @@ export default function WorksNewPage() {
       // 1. 계약서 Storage 업로드
       let contractFileUrl: string | null = null
       if (contractFile) {
-        const contractPath = `${user.id}/${contractId}/contract_${timestamp}_${contractFile.file.name}`
+        const contractPath = `${user.id}/${contractId}/contract_${safeFileName(contractFile.file.name)}`
         const { error: contractUploadError } = await supabase.storage
           .from("contracts")
           .upload(contractPath, contractFile.file)
@@ -168,7 +174,7 @@ export default function WorksNewPage() {
       // 2. 동의서 Storage 업로드 (선택)
       let consentFileUrl: string | null = null
       if (consentFile) {
-        const consentPath = `${user.id}/${contractId}/consent_${timestamp}_${consentFile.file.name}`
+        const consentPath = `${user.id}/${contractId}/consent_${safeFileName(consentFile.file.name)}`
         const { error: consentUploadError } = await supabase.storage
           .from("contracts")
           .upload(consentPath, consentFile.file)
@@ -197,7 +203,7 @@ export default function WorksNewPage() {
       // 4. 저작물 Storage 업로드 + works 테이블 insert
       for (const wf of workFiles) {
         const workId = crypto.randomUUID()
-        const workPath = `${user.id}/${contractId}/${workId}_${wf.file.name}`
+        const workPath = `${user.id}/${contractId}/${safeFileName(wf.file.name)}`
         const { error: workUploadError } = await supabase.storage
           .from("works")
           .upload(workPath, wf.file)
