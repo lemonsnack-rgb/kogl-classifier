@@ -1,10 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import AppLayout from "@/components/layout/AppLayout"
 import { getContractById } from "@/lib/mock/data"
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client"
+import type { Contract } from "@/types"
 import { KOGL_TYPES, STATUS_META } from "@/types"
 import type { KoglType, ContractStatus, ClauseType, Work } from "@/types"
 import {
@@ -121,9 +123,62 @@ function handleFileDownload() {
 export default function WorkDetailPage() {
   const params = useParams()
   const id = params.id as string
-  const contract = getContractById(id)
 
+  const [contract, setContract] = useState<Contract | null | undefined>(undefined)
+  const [loading, setLoading] = useState(true)
   const [selectedWorkIdx, setSelectedWorkIdx] = useState<number | null>(null)
+
+  useEffect(() => {
+    async function loadContract() {
+      // 1. Mock 데이터에서 먼저 검색
+      const mockContract = getContractById(id)
+      if (mockContract) {
+        setContract(mockContract)
+        setLoading(false)
+        return
+      }
+
+      // 2. Supabase DB에서 검색
+      if (isSupabaseConfigured()) {
+        try {
+          const supabase = createClient()
+
+          // 계약서 정보
+          const { data: contractData, error: contractError } = await supabase
+            .from("contracts")
+            .select("*")
+            .eq("id", id)
+            .single()
+
+          if (contractError || !contractData) {
+            setContract(null)
+            setLoading(false)
+            return
+          }
+
+          // 저작물 목록
+          const { data: worksData } = await supabase
+            .from("works")
+            .select("*")
+            .eq("contract_id", id)
+            .order("created_at", { ascending: true })
+
+          setContract({
+            ...contractData,
+            works: worksData || [],
+            clauses: [],
+            works_count: worksData?.length || 0,
+          })
+        } catch {
+          setContract(null)
+        }
+      } else {
+        setContract(null)
+      }
+      setLoading(false)
+    }
+    loadContract()
+  }, [id])
   const [editingType, setEditingType] = useState(false)
   const [editingMeta, setEditingMeta] = useState(false)
 
@@ -135,6 +190,16 @@ export default function WorkDetailPage() {
 
   // 메타데이터 인라인 수정 상태
   const [metaForm, setMetaForm] = useState<Record<string, string>>({})
+
+  if (loading || contract === undefined) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center h-[calc(100vh-48px)]">
+          <p className="text-sm text-gray-400">데이터를 불러오는 중...</p>
+        </div>
+      </AppLayout>
+    )
+  }
 
   if (!contract) {
     return (
