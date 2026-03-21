@@ -3,6 +3,8 @@
 import { useState, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import AppLayout from "@/components/layout/AppLayout"
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client"
+import { DOCUMENT_TYPES, type DocumentType } from "@/lib/api/config"
 import {
   Upload,
   FileText,
@@ -40,7 +42,9 @@ export default function WorksNewPage() {
   const [contractFile, setContractFile] = useState<UploadedFile | null>(null)
   const [consentFile, setConsentFile] = useState<UploadedFile | null>(null)
   const [workFiles, setWorkFiles] = useState<UploadedFile[]>([])
+  const [documentType, setDocumentType] = useState<DocumentType>("계약서")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
   const contractInputRef = useRef<HTMLInputElement>(null)
   const consentInputRef = useRef<HTMLInputElement>(null)
@@ -133,9 +137,89 @@ export default function WorksNewPage() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true)
-    // Mock 처리 시뮬레이션
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    router.push("/works")
+    setUploadError(null)
+
+    if (!isSupabaseConfigured()) {
+      // Mock 모드
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+      router.push("/works")
+      return
+    }
+
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("로그인이 필요합니다.")
+
+      const contractId = crypto.randomUUID()
+      const timestamp = Date.now()
+
+      // 1. 계약서 Storage 업로드
+      let contractFileUrl: string | null = null
+      if (contractFile) {
+        const contractPath = `${user.id}/${contractId}/contract_${timestamp}_${contractFile.file.name}`
+        const { error: contractUploadError } = await supabase.storage
+          .from("contracts")
+          .upload(contractPath, contractFile.file)
+        if (contractUploadError) throw new Error(`계약서 업로드 실패: ${contractUploadError.message}`)
+        contractFileUrl = contractPath
+      }
+
+      // 2. 동의서 Storage 업로드 (선택)
+      let consentFileUrl: string | null = null
+      if (consentFile) {
+        const consentPath = `${user.id}/${contractId}/consent_${timestamp}_${consentFile.file.name}`
+        const { error: consentUploadError } = await supabase.storage
+          .from("contracts")
+          .upload(consentPath, consentFile.file)
+        if (consentUploadError) throw new Error(`동의서 업로드 실패: ${consentUploadError.message}`)
+        consentFileUrl = consentPath
+      }
+
+      // 3. contracts 테이블에 레코드 생성
+      const { error: contractInsertError } = await supabase
+        .from("contracts")
+        .insert({
+          id: contractId,
+          user_id: user.id,
+          inspection_title: inspectionName,
+          contract_file_url: contractFileUrl,
+          contract_filename: contractFile?.file.name || null,
+          consent_file_url: consentFileUrl,
+          consent_filename: consentFile?.file.name || null,
+          document_type: documentType,
+          is_institution_made: isInstitutionMade,
+          status: "uploaded",
+          works_count: workFiles.length,
+        })
+      if (contractInsertError) throw new Error(`검사 등록 실패: ${contractInsertError.message}`)
+
+      // 4. 저작물 Storage 업로드 + works 테이블 insert
+      for (const wf of workFiles) {
+        const workId = crypto.randomUUID()
+        const workPath = `${user.id}/${contractId}/${workId}_${wf.file.name}`
+        const { error: workUploadError } = await supabase.storage
+          .from("works")
+          .upload(workPath, wf.file)
+        if (workUploadError) throw new Error(`저작물 업로드 실패: ${workUploadError.message}`)
+
+        const { error: workInsertError } = await supabase
+          .from("works")
+          .insert({
+            id: workId,
+            contract_id: contractId,
+            work_file_url: workPath,
+            work_filename: wf.file.name,
+            ocr_status: "pending",
+          })
+        if (workInsertError) throw new Error(`저작물 등록 실패: ${workInsertError.message}`)
+      }
+
+      router.push("/works")
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "업로드 중 오류가 발생했습니다.")
+      setIsSubmitting(false)
+    }
   }
 
   // ========================================
@@ -218,6 +302,24 @@ export default function WorksNewPage() {
                   placeholder="예: 2026년 1분기 박물관 소장품 저작권 검사"
                   className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
                 />
+              </div>
+
+              {/* 문서 유형 선택 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  문서 유형 <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={documentType}
+                  onChange={(e) => setDocumentType(e.target.value as DocumentType)}
+                  className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 bg-white"
+                >
+                  {DOCUMENT_TYPES.map((dt) => (
+                    <option key={dt.value} value={dt.value}>
+                      {dt.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* 기관 자체 제작물 체크박스 */}
@@ -505,6 +607,14 @@ export default function WorksNewPage() {
                   <p className="text-sm text-gray-900">{inspectionName}</p>
                 </div>
 
+                {/* 문서 유형 */}
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                    문서 유형
+                  </h4>
+                  <p className="text-sm text-gray-900">{documentType}</p>
+                </div>
+
                 {/* 계약서/동의서 정보 */}
                 <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                   <h4 className="text-sm font-semibold text-gray-700 mb-2">
@@ -563,6 +673,13 @@ export default function WorksNewPage() {
                   </ul>
                 </div>
               </div>
+
+              {/* 에러 메시지 */}
+              {uploadError && (
+                <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                  <p className="text-sm text-red-700">{uploadError}</p>
+                </div>
+              )}
 
               {/* 이전/검사하기 버튼 */}
               <div className="flex justify-between pt-4">
