@@ -15,15 +15,31 @@
 export { API_CONFIG, DOCUMENT_TYPES } from "./config"
 export type { DocumentType } from "./config"
 
-export { extractMetadata, mapSSUResponseToWork } from "./ocr"
+// 숭실대 API
+export {
+  extractMetadata,
+  extractOcrOnly,
+  extractNerOnly,
+  downloadResult,
+  checkHealth,
+  mapSSUMetadataToDisplay,
+} from "./ocr"
+
+// HMC API
 export { classifyKoglType, mapHMCToKoglType, mapHMCToContractClauses } from "./classifier"
 
+// 타입
 export type {
+  SSUExtractRequest,
   SSUExtractResponse,
-  SSUMetadata,
   SSUConsolidationDecision,
   SSUConsolidationSummary,
   SSUOcrResponse,
+  SSUOcrPage,
+  SSUNerResponse,
+  SSUDownloadParams,
+  SSUHealthResponse,
+  SSUErrorResponse,
   HMCClassifyResponse,
   HMCEvidenceClause,
 } from "./types"

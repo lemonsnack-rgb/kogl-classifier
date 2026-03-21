@@ -1,17 +1,33 @@
 // ========================================
-// 숭실대 API 응답 타입 (원본 그대로)
+// 숭실대 API 응답 타입 (2.API_명세서.docx 기준)
 // ========================================
+
+// POST /api/llm-extract 요청 파라미터
+export interface SSUExtractRequest {
+  file: File // (필수) PDF/이미지 파일
+  model_name?: string // 기본값: "Qwen3-VL-235B"
+  document_type?: string // 기본값: "기타문서" (계약서, 동의서, 저작재산권 양도동의서, 공공저작물 자유이용허락 동의서, 기타문서)
+  ocr_provider?: string // 기본값: "alibaba"
+  ocr_model?: string // 기본값: "qwen3-vl-235b-a22b-instruct"
+  ner_model?: string // 기본값: "klue-roberta-large"
+  consolidate?: boolean // 기본값: true
+  consolidation_model?: string // 기본값: "alibaba-qwen3-next-80b-a3b-instruct"
+  stream?: boolean // 기본값: false
+}
 
 // POST /api/llm-extract 응답
 export interface SSUExtractResponse {
   success: boolean
   request_id: string
   filename: string
+  file_size_mb: number
+  model_used: string
   document_type: string
 
-  // LLM 단독 추출 결과
-  metadata: SSUMetadata
+  // LLM 단독 추출 결과 (문서 유형별 구조가 다름)
+  metadata: Record<string, unknown>
   confidence: number
+  extraction_time: number
 
   // OCR 결과
   ocr_text: string
@@ -22,53 +38,27 @@ export interface SSUExtractResponse {
   ner_model: string
   entities: Record<string, number>
   entity_count: number
+  ner_success: boolean
 
   // 통합 검증 결과 (최종)
-  consolidated_metadata: SSUMetadata
+  consolidate: boolean
+  consolidation_success: boolean
+  consolidated_metadata: Record<string, unknown>
   consolidation_decisions: SSUConsolidationDecision[]
   consolidation_summary: SSUConsolidationSummary
+  consolidation_confidence: number
+  consolidation_model_used: string
+  consolidation_fallback_used: boolean
 
   processing_time: number
 }
 
-// 메타데이터 구조 (필수 20개 항목 기준)
-export interface SSUMetadata {
-  // 저작물 정보
-  work_name?: string | null // 저작물명
-  work_type?: string | null // 저작물 유형
-  digital_format?: string | null // 디지털화 형태
-  description?: string | null // 저작물 설명
-  keywords?: string | null // 주제어
-  language?: string | null // 언어
-  created_date?: string | null // 제작일
-  contract_type?: string | null // 계약서 유형
-
-  // 저작자 정보
-  copyright_holder?: string | null // 저작권자
-  co_authors?: string | null // 공동저작자
-  neighboring_rights_holder?: string | null // 저작인접권자
-
-  // 권리 정보
-  disclosure_type?: string | null // 공개유형
-  copyrightability?: string | null // 저작물성
-  non_protected_work?: string | null // 비보호저작물
-  work_for_hire?: string | null // 업무상저작물
-  commercial_use?: string | null // 상업적 이용허락
-  property_rights?: string | null // 저작재산권
-  co_author_consent?: string | null // 공동저작자 동의
-  validity_period?: string | null // 유효기간
-  portrait_rights?: string | null // 초상권
-
-  // 확장 필드 (향후 추가 가능)
-  [key: string]: string | null | undefined
-}
-
-// 통합 검증 판정
+// 통합 검증 판정 (필드별)
 export interface SSUConsolidationDecision {
   field: string
-  llm_value: string | null
-  ner_value: string | null
-  final_value: string | null
+  llm_value: unknown
+  ner_value: unknown
+  final_value: unknown
   decision: "AGREED" | "CONFLICT" | "LLM_ONLY" | "NER_ONLY" | "MISSING"
   confidence: number
   reasoning: string
@@ -85,14 +75,20 @@ export interface SSUConsolidationSummary {
   overall_confidence: number
 }
 
+// ========================================
 // POST /api/ocr-universal 응답
+// ========================================
 export interface SSUOcrResponse {
-  success: boolean
   request_id: string
   filename: string
-  full_text: string
-  pages: SSUOcrPage[]
+  provider: string
+  model: string
+  success: boolean
+  total_pages: number
+  total_text_length: number
   processing_time: number
+  extracted_text: string
+  pages: SSUOcrPage[]
 }
 
 export interface SSUOcrPage {
@@ -102,12 +98,72 @@ export interface SSUOcrPage {
   status: string
 }
 
+// ========================================
+// POST /api/ner-extract 응답
+// ========================================
+export interface SSUNerResponse {
+  success: boolean
+  request_id: string
+  filename: string
+  file_size_mb: number
+  model: string
+  entities: Record<string, number>
+  entity_count: number
+  steps: {
+    ocr: { success: boolean; time: number }
+    ner: { success: boolean; entity_count: number; time: number }
+  }
+  processing_time: number
+}
+
+// ========================================
+// GET /download/{request_id} 응답
+// ========================================
+export interface SSUDownloadParams {
+  request_id: string
+  type: "entities" | "metadata"
+}
+
+// ========================================
 // GET /health 응답
+// ========================================
 export interface SSUHealthResponse {
   status: string
-  available_ocr_engines: string[]
-  available_models: string[]
+  timestamp: string
+  available_ocr_engines: Record<string, boolean>
+  available_models: Record<string, unknown>
 }
+
+// ========================================
+// 에러 응답 (모든 엔드포인트 공통)
+// ========================================
+export interface SSUErrorResponse {
+  success: false
+  error: string
+  request_id: string
+}
+
+// ========================================
+// 메타데이터 구조 참고 (문서 유형별로 다름)
+// ========================================
+// 동의서 응답 예시:
+// {
+//   "consent_type": "개인정보 수집 및 이용 동의서",
+//   "data_controller": "주) 나라지식정보",
+//   "data_subject": "박광수",
+//   "collection_purpose": "...",
+//   "collected_data_types": ["성명", "전화번호", "주소"],
+//   "retention_period": "...",
+//   "third_party_sharing": { "recipient": "...", "purpose": "...", "data_types": [...] },
+//   "consent_status": "동의함",
+//   "consent_date": "2020-06-20",
+//   "signature": "박광수",
+//   "contact_info": { "phone": "...", "address": "...", "email": null },
+//   "parties": [{ "name": "...", "phone": "...", "address": "...", "role": "..." }]
+// }
+//
+// 메타데이터는 Record<string, unknown>으로 수신하여
+// 프론트엔드에서 키-값을 동적으로 렌더링합니다.
 
 // ========================================
 // HMC API 응답 타입 (예상 - 스펙 수신 후 수정)
@@ -131,8 +187,8 @@ export interface HMCClassifyResponse {
 }
 
 export interface HMCEvidenceClause {
-  clause_type: string // OWNERSHIP, LICENSE, DERIVATIVE, SCOPE, TERM, ATTRIBUTION
-  text: string // 계약서 원문 문구
+  clause_type: string
+  text: string
   page_number?: number
   confidence: number
 }
