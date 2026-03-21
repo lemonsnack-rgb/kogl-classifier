@@ -221,7 +221,7 @@ export default function WorksNewPage() {
         if (workInsertError) throw new Error(`저작물 등록 실패: ${workInsertError.message}`)
       }
 
-      router.push("/works")
+      router.push("/works?success=1")
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "업로드 중 오류가 발생했습니다.")
       setIsSubmitting(false)

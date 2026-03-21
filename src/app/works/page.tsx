@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useMemo, useEffect, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import AppLayout from "@/components/layout/AppLayout"
 import { getContracts } from "@/lib/mock/data"
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client"
 import { KOGL_TYPES, STATUS_META } from "@/types"
-import type { KoglType, ContractStatus } from "@/types"
-import { Plus, FileText, Search } from "lucide-react"
+import type { Contract, KoglType, ContractStatus } from "@/types"
+import { Plus, FileText, Search, Loader2 } from "lucide-react"
 
 function formatDateTime(dateStr: string): string {
   const d = new Date(dateStr)
@@ -29,12 +30,70 @@ const WORK_TYPE_LABELS: Record<string, string> = {
   video: "영상",
 }
 
-export default function WorksPage() {
-  const router = useRouter()
-  const allContracts = getContracts()
-  const [searchQuery, setSearchQuery] = useState("")
+export default function WorksPageWrapper() {
+  return (
+    <Suspense fallback={<AppLayout><div className="flex items-center justify-center py-12"><span className="text-sm text-gray-500">로딩 중...</span></div></AppLayout>}>
+      <WorksPage />
+    </Suspense>
+  )
+}
 
+function WorksPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [allContracts, setAllContracts] = useState<Contract[]>([])
+  const [loading, setLoading] = useState(true)
+  const [successMsg, setSuccessMsg] = useState<string | null>(null)
+
+  // 업로드 성공 메시지 표시
+  useEffect(() => {
+    if (searchParams.get("success") === "1") {
+      setSuccessMsg("검사가 등록되었습니다.")
+      const timer = setTimeout(() => setSuccessMsg(null), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [searchParams])
+  const [searchQuery, setSearchQuery] = useState("")
   const [activeQuery, setActiveQuery] = useState("")
+
+  // Supabase에서 실제 데이터 로드
+  useEffect(() => {
+    async function loadContracts() {
+      if (!isSupabaseConfigured()) {
+        setAllContracts(getContracts())
+        setLoading(false)
+        return
+      }
+
+      try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          setAllContracts([])
+          setLoading(false)
+          return
+        }
+
+        const { data, error } = await supabase
+          .from("contracts")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+
+        if (error) {
+          console.error("계약서 로드 실패:", error.message)
+          setAllContracts(getContracts()) // 실패 시 Mock fallback
+        } else {
+          // DB 데이터가 없으면 Mock, 있으면 실제 데이터
+          setAllContracts(data.length > 0 ? data : getContracts())
+        }
+      } catch {
+        setAllContracts(getContracts())
+      }
+      setLoading(false)
+    }
+    loadContracts()
+  }, [])
 
   const contracts = useMemo(() => {
     if (!activeQuery.trim()) return allContracts
@@ -80,6 +139,21 @@ export default function WorksPage() {
             </button>
           </div>
         </div>
+
+        {/* 성공 메시지 */}
+        {successMsg && (
+          <div className="mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
+            <p className="text-sm text-green-700 font-medium">✓ {successMsg}</p>
+          </div>
+        )}
+
+        {/* 로딩 상태 */}
+        {loading && (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            <span className="ml-2 text-sm text-gray-500">데이터를 불러오는 중...</span>
+          </div>
+        )}
 
         {/* 카드 그리드 - 4열, 꽉 차게 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
