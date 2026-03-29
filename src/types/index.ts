@@ -80,6 +80,12 @@ export interface Contract {
   ocr_text: string | null
   created_at: string
   updated_at: string
+  // 숭실대 추출 메타데이터 (JSONB)
+  contract_metadata?: Record<string, unknown> | null
+  gongnuri_evidence?: string | null
+  document_type?: string | null
+  consent_file_url?: string | null
+  consent_filename?: string | null
   // 조인된 데이터
   works?: Work[]
   clauses?: ContractClause[]

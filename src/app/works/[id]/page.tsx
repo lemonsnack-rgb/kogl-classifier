@@ -488,6 +488,17 @@ export default function WorkDetailPage() {
           {/* 섹션 구분선 */}
           <div className="border-t border-gray-200 my-5" />
 
+          {/* ── 계약서 추출 메타데이터 섹션 ── */}
+          {contract.contract_metadata && (
+            <>
+              <SectionDivider title="계약서 추출 메타데이터" />
+              <div className="space-y-1.5 mb-6">
+                <JsonRenderer data={contract.contract_metadata} />
+              </div>
+              <div className="border-t border-gray-200 my-5" />
+            </>
+          )}
+
           {/* ── 저작물 목록 섹션 ── */}
           <SectionDivider title={`저작물 목록 (${works.length}건)`} />
           {works.length === 0 ? (
@@ -971,4 +982,158 @@ function MetaField({
       )}
     </div>
   )
+}
+
+/** 필드명 한글 매핑 */
+const FIELD_LABELS: Record<string, string> = {
+  consent_type: "동의서 유형",
+  contract_type: "계약서 유형",
+  data_controller: "처리기관",
+  data_subject: "정보주체",
+  collection_purpose: "수집 목적",
+  collected_data_types: "수집 항목",
+  retention_period: "보유 기간",
+  third_party_sharing: "제3자 제공",
+  recipient: "제공받는 자",
+  purpose: "이용 목적",
+  data_types: "제공 항목",
+  consent_status: "동의 여부",
+  consent_date: "동의 날짜",
+  signature: "서명",
+  signature_date: "서명 날짜",
+  contact_info: "연락처",
+  phone: "전화번호",
+  address: "주소",
+  email: "이메일",
+  parties: "당사자",
+  name: "이름",
+  role: "역할",
+  registration_no: "등록번호",
+  rights_holder: "권리자",
+  user: "이용기관",
+  work_title: "저작물명",
+  work_category: "저작물 분류",
+  granted_rights: "양도 권리",
+  reproduction_right: "복제권",
+  performance_right: "공연권",
+  broadcasting_right: "방송권",
+  exhibition_right: "전시권",
+  distribution_right: "배포권",
+  rental_right: "대여권",
+  derivative_work_right: "2차적저작물작성권",
+  contract_purpose: "계약 목적",
+  contract_duration: "계약 기간",
+  payment_amount: "대금",
+  special_terms: "특약사항",
+  termination_conditions: "해지 조건",
+  effective_date: "시작일",
+  expiration_date: "종료일",
+  work_display: "저작물 표시",
+  work_names: "저작물명",
+  institution: "기관",
+  work_details: "상세정보",
+  copyright_license: "저작재산권 이용허락",
+  license_purpose: "허락 목적",
+  licensing_institution: "허락 기관",
+  public_nuri_license: "공공누리 라이선스",
+  nuri_type: "공공누리 유형",
+  modification_rights: "변경 권리",
+  integrity_right_waiver: "동일성유지권 포기",
+  modification_allowed: "변경 허용",
+  conditions: "조건",
+  personal_info_consent: "개인정보 동의",
+  utilizing_institution: "활용기관",
+  processing_info: "처리정보",
+  checkbox_info: "체크박스 정보",
+  checkbox_pattern_detected: "패턴",
+  extraction_confidence: "추출 신뢰도",
+  checkbox_fields_found: "감지된 항목",
+  withdrawal_rights: "철회 권리",
+  consequences_of_refusal: "거절 시 결과",
+  contract_terms: "계약 조건",
+  payment_currency: "통화",
+  available_types: "사용 가능 유형",
+  detailed_info: "상세정보",
+}
+
+function getLabel(key: string): string {
+  return FIELD_LABELS[key] ?? key
+}
+
+/** JSONB 동적 렌더러 - 중첩 객체/배열 지원 */
+function JsonRenderer({ data, depth = 0 }: { data: unknown; depth?: number }) {
+  if (data === null || data === undefined) return <EmptyValue />
+
+  if (typeof data === "boolean") {
+    return (
+      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${data ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+        {data ? "✓ 해당" : "— 해당없음"}
+      </span>
+    )
+  }
+
+  if (typeof data === "number") {
+    return <span className="text-sm text-gray-900">{data}</span>
+  }
+
+  if (typeof data === "string") {
+    return <span className="text-sm text-gray-900">{data}</span>
+  }
+
+  if (Array.isArray(data)) {
+    if (data.length === 0) return <EmptyValue />
+    // 문자열 배열
+    if (typeof data[0] === "string") {
+      return (
+        <div className="flex flex-wrap gap-1.5">
+          {data.map((item, i) => (
+            <span key={i} className="inline-flex items-center px-2 py-0.5 rounded bg-gray-100 text-xs text-gray-700">
+              {String(item)}
+            </span>
+          ))}
+        </div>
+      )
+    }
+    // 객체 배열 (parties 등)
+    return (
+      <div className="space-y-2">
+        {data.map((item, i) => (
+          <div key={i} className="bg-white border border-gray-200 rounded-lg p-3">
+            <JsonRenderer data={item} depth={depth + 1} />
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (typeof data === "object") {
+    const entries = Object.entries(data as Record<string, unknown>)
+    return (
+      <div className={`space-y-2 ${depth > 0 ? "" : ""}`}>
+        {entries.map(([key, value]) => {
+          const isNested = typeof value === "object" && value !== null && !Array.isArray(value)
+          const isArray = Array.isArray(value)
+          return (
+            <div key={key}>
+              <div className="flex items-baseline gap-2">
+                <span className="text-sm text-gray-500 flex-shrink-0">{getLabel(key)}</span>
+                {!isNested && !isArray && (
+                  <div className="flex-1 min-w-0">
+                    <JsonRenderer data={value} depth={depth + 1} />
+                  </div>
+                )}
+              </div>
+              {(isNested || isArray) && (
+                <div className="ml-3 mt-1 pl-3 border-l-2 border-gray-100">
+                  <JsonRenderer data={value} depth={depth + 1} />
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  return <span className="text-sm text-gray-900">{String(data)}</span>
 }
