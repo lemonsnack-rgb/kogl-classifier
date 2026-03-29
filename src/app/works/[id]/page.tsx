@@ -128,6 +128,8 @@ export default function WorkDetailPage() {
   const [loading, setLoading] = useState(true)
   const [selectedWorkIdx, setSelectedWorkIdx] = useState<number | null>(null)
   const [showMetaDetail, setShowMetaDetail] = useState(false)
+  const [editingContractMeta, setEditingContractMeta] = useState(false)
+  const [contractMetaForm, setContractMetaForm] = useState<Record<string, string>>({})
 
   useEffect(() => {
     async function loadContract() {
@@ -578,16 +580,67 @@ export default function WorkDetailPage() {
             <div>
               <div className="flex items-center justify-between mb-5">
                 <SectionDivider title="계약서 추출 메타데이터 상세" />
-                <button
-                  onClick={() => setShowMetaDetail(false)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                >
-                  <X className="w-3 h-3" />
-                  닫기
-                </button>
+                <div className="flex gap-2">
+                  {!editingContractMeta ? (
+                    <>
+                      <button
+                        onClick={() => {
+                          const flat = flattenJson(contract.contract_metadata!)
+                          setContractMetaForm(flat)
+                          setEditingContractMeta(true)
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-primary-600 border border-primary-200 rounded-md hover:bg-primary-50 transition-colors"
+                      >
+                        <Pencil className="w-3 h-3" />
+                        수정
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowMetaDetail(false)
+                          setEditingContractMeta(false)
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                        닫기
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => {
+                          alert("메타데이터가 저장되었습니다")
+                          setEditingContractMeta(false)
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 transition-colors"
+                      >
+                        <Save className="w-3 h-3" />
+                        저장
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingContractMeta(false)
+                          setContractMetaForm({})
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                        취소
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
               <div className="bg-white border border-gray-200 rounded-lg p-5">
-                <JsonRenderer data={contract.contract_metadata} />
+                {editingContractMeta ? (
+                  <EditableJsonRenderer
+                    data={contract.contract_metadata}
+                    form={contractMetaForm}
+                    onChange={(key, value) => setContractMetaForm(prev => ({ ...prev, [key]: value }))}
+                  />
+                ) : (
+                  <JsonRenderer data={contract.contract_metadata} />
+                )}
               </div>
             </div>
           ) : selectedWork === null ? (
@@ -1206,4 +1259,128 @@ function JsonRenderer({ data, depth = 0 }: { data: unknown; depth?: number }) {
   }
 
   return <span className="text-sm text-gray-900">{String(data)}</span>
+}
+
+/** JSON을 flat key-value로 변환 (예: "parties.0.name" → "박동우") */
+function flattenJson(data: Record<string, unknown>, prefix = ""): Record<string, string> {
+  const result: Record<string, string> = {}
+  for (const [key, value] of Object.entries(data)) {
+    const fullKey = prefix ? `${prefix}.${key}` : key
+    if (value === null || value === undefined) {
+      result[fullKey] = ""
+    } else if (typeof value === "boolean") {
+      result[fullKey] = value ? "true" : "false"
+    } else if (typeof value === "object" && !Array.isArray(value)) {
+      Object.assign(result, flattenJson(value as Record<string, unknown>, fullKey))
+    } else if (Array.isArray(value)) {
+      if (value.length > 0 && typeof value[0] === "string") {
+        result[fullKey] = value.join(", ")
+      } else {
+        value.forEach((item, i) => {
+          if (typeof item === "object" && item !== null) {
+            Object.assign(result, flattenJson(item as Record<string, unknown>, `${fullKey}.${i}`))
+          } else {
+            result[`${fullKey}.${i}`] = String(item ?? "")
+          }
+        })
+      }
+    } else {
+      result[fullKey] = String(value)
+    }
+  }
+  return result
+}
+
+/** 수정 가능한 JSON 렌더러 */
+function EditableJsonRenderer({
+  data,
+  form,
+  onChange,
+  prefix = "",
+  depth = 0,
+}: {
+  data: unknown
+  form: Record<string, string>
+  onChange: (key: string, value: string) => void
+  prefix?: string
+  depth?: number
+}) {
+  if (typeof data !== "object" || data === null) return null
+
+  if (Array.isArray(data)) {
+    if (data.length === 0) return <EmptyValue />
+    if (typeof data[0] === "string") {
+      const fullKey = prefix
+      return (
+        <input
+          type="text"
+          value={form[fullKey] ?? data.join(", ")}
+          onChange={(e) => onChange(fullKey, e.target.value)}
+          className="w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+        />
+      )
+    }
+    return (
+      <div className="space-y-2">
+        {data.map((item, i) => (
+          <div key={i} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+            <EditableJsonRenderer
+              data={item}
+              form={form}
+              onChange={onChange}
+              prefix={prefix ? `${prefix}.${i}` : `${i}`}
+              depth={depth + 1}
+            />
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  const entries = Object.entries(data as Record<string, unknown>)
+  return (
+    <div className="space-y-3">
+      {entries.map(([key, value]) => {
+        const fullKey = prefix ? `${prefix}.${key}` : key
+        const isNested = typeof value === "object" && value !== null && !Array.isArray(value)
+        const isArray = Array.isArray(value)
+        const isLeaf = !isNested && !isArray
+
+        return (
+          <div key={key}>
+            <label className="text-sm text-gray-500 mb-1 block">{getLabel(key)}</label>
+            {isLeaf ? (
+              typeof value === "boolean" ? (
+                <select
+                  value={form[fullKey] ?? (value ? "true" : "false")}
+                  onChange={(e) => onChange(fullKey, e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="true">해당</option>
+                  <option value="false">해당없음</option>
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={form[fullKey] ?? String(value ?? "")}
+                  onChange={(e) => onChange(fullKey, e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              )
+            ) : (
+              <div className="ml-3 pl-3 border-l-2 border-gray-100">
+                <EditableJsonRenderer
+                  data={value}
+                  form={form}
+                  onChange={onChange}
+                  prefix={fullKey}
+                  depth={depth + 1}
+                />
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
 }
