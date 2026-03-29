@@ -127,6 +127,7 @@ export default function WorkDetailPage() {
   const [contract, setContract] = useState<Contract | null | undefined>(undefined)
   const [loading, setLoading] = useState(true)
   const [selectedWorkIdx, setSelectedWorkIdx] = useState<number | null>(null)
+  const [showMetaDetail, setShowMetaDetail] = useState(false)
 
   useEffect(() => {
     async function loadContract() {
@@ -272,6 +273,7 @@ export default function WorkDetailPage() {
   function handleSelectWork(idx: number) {
     setSelectedWorkIdx(idx)
     setEditingMeta(false)
+    setShowMetaDetail(false)
   }
 
   return (
@@ -488,13 +490,23 @@ export default function WorkDetailPage() {
           {/* 섹션 구분선 */}
           <div className="border-t border-gray-200 my-5" />
 
-          {/* ── 계약서 추출 메타데이터 섹션 ── */}
+          {/* ── 계약서 추출 메타데이터 (요약) ── */}
           {contract.contract_metadata && (
             <>
               <SectionDivider title="계약서 추출 메타데이터" />
-              <div className="space-y-1.5 mb-6">
-                <JsonRenderer data={contract.contract_metadata} />
+              <div className="space-y-2 mb-3">
+                <MetaSummary data={contract.contract_metadata} />
               </div>
+              <button
+                onClick={() => {
+                  setShowMetaDetail(true)
+                  setSelectedWorkIdx(null)
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary-600 border border-primary-200 rounded-md hover:bg-primary-50 transition-colors mb-6"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                상세 보기
+              </button>
               <div className="border-t border-gray-200 my-5" />
             </>
           )}
@@ -561,7 +573,24 @@ export default function WorkDetailPage() {
 
         {/* ====== 우측 패널 ====== */}
         <div className="w-1/2 overflow-y-auto bg-gray-50 px-8 py-5">
-          {selectedWork === null ? (
+          {showMetaDetail && contract.contract_metadata ? (
+            /* ── 계약서 메타데이터 상세 모드 ── */
+            <div>
+              <div className="flex items-center justify-between mb-5">
+                <SectionDivider title="계약서 추출 메타데이터 상세" />
+                <button
+                  onClick={() => setShowMetaDetail(false)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  <X className="w-3 h-3" />
+                  닫기
+                </button>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-lg p-5">
+                <JsonRenderer data={contract.contract_metadata} />
+              </div>
+            </div>
+          ) : selectedWork === null ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
                 <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
@@ -980,6 +1009,47 @@ function MetaField({
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+/** 계약서 메타데이터 요약 (핵심 3~4개만 표시) */
+function MetaSummary({ data }: { data: Record<string, unknown> }) {
+  // 문서 유형별 핵심 필드 결정
+  const summaryFields: { key: string; label: string }[] = []
+
+  if (data.consent_type) {
+    summaryFields.push({ key: "consent_type", label: "유형" })
+    if (data.data_subject) summaryFields.push({ key: "data_subject", label: "정보주체" })
+    if (data.data_controller) summaryFields.push({ key: "data_controller", label: "처리기관" })
+    if (data.consent_date) summaryFields.push({ key: "consent_date", label: "동의 날짜" })
+  } else if (data.contract_type) {
+    summaryFields.push({ key: "contract_type", label: "유형" })
+    if (data.work_title) summaryFields.push({ key: "work_title", label: "저작물명" })
+    if (data.rights_holder) summaryFields.push({ key: "rights_holder", label: "권리자" })
+    if (data.signature_date) summaryFields.push({ key: "signature_date", label: "서명일" })
+  } else {
+    // 기본: 처음 4개 키
+    const keys = Object.keys(data).slice(0, 4)
+    keys.forEach((k) => summaryFields.push({ key: k, label: getLabel(k) }))
+  }
+
+  return (
+    <div className="space-y-2">
+      {summaryFields.map(({ key, label }) => {
+        const val = data[key]
+        const display = val === null || val === undefined
+          ? null
+          : typeof val === "object"
+          ? JSON.stringify(val)
+          : String(val)
+        return (
+          <div key={key} className="flex items-baseline gap-3">
+            <span className="text-sm text-gray-500 w-20 flex-shrink-0">{label}</span>
+            <span className="text-sm text-gray-900 font-medium">{display ?? <EmptyValue />}</span>
+          </div>
+        )
+      })}
     </div>
   )
 }
