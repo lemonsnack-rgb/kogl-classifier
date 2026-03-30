@@ -166,10 +166,17 @@ export default function WorkDetailPage() {
             .eq("contract_id", id)
             .order("created_at", { ascending: true })
 
+          // 근거 조항
+          const { data: clausesData } = await supabase
+            .from("contract_clauses")
+            .select("*")
+            .eq("contract_id", id)
+            .order("created_at", { ascending: true })
+
           setContract({
             ...contractData,
             works: worksData || [],
-            clauses: [],
+            clauses: clausesData || [],
             works_count: worksData?.length || 0,
           })
         } catch {
