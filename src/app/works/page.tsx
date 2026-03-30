@@ -60,7 +60,7 @@ function WorksPage() {
   useEffect(() => {
     async function loadContracts() {
       if (!isSupabaseConfigured()) {
-        setAllContracts(getContracts())
+        setAllContracts([])
         setLoading(false)
         return
       }
@@ -82,14 +82,12 @@ function WorksPage() {
 
         if (error) {
           console.error("계약서 로드 실패:", error.message)
-          setAllContracts(getContracts())
+          setAllContracts([])
         } else {
-          // DB 실제 데이터 + Mock 데이터 합산
-          const mockContracts = getContracts()
-          setAllContracts([...data, ...mockContracts])
+          setAllContracts(data || [])
         }
       } catch {
-        setAllContracts(getContracts())
+        setAllContracts([])
       }
       setLoading(false)
     }

@@ -133,15 +133,7 @@ export default function WorkDetailPage() {
 
   useEffect(() => {
     async function loadContract() {
-      // 1. Mock 데이터에서 먼저 검색
-      const mockContract = getContractById(id)
-      if (mockContract) {
-        setContract(mockContract)
-        setLoading(false)
-        return
-      }
-
-      // 2. Supabase DB에서 검색
+      // Supabase DB에서 검색
       if (isSupabaseConfigured()) {
         try {
           const supabase = createClient()
