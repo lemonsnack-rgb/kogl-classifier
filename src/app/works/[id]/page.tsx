@@ -630,17 +630,12 @@ export default function WorkDetailPage() {
                   )}
                 </div>
               </div>
-              <div className="bg-white border border-gray-200 rounded-lg p-5">
-                {editingContractMeta ? (
-                  <EditableJsonRenderer
-                    data={contract.contract_metadata}
-                    form={contractMetaForm}
-                    onChange={(key, value) => setContractMetaForm(prev => ({ ...prev, [key]: value }))}
-                  />
-                ) : (
-                  <JsonRenderer data={contract.contract_metadata} />
-                )}
-              </div>
+              <MetadataTable
+                data={contract.contract_metadata}
+                editing={editingContractMeta}
+                form={contractMetaForm}
+                onChange={(key, value) => setContractMetaForm(prev => ({ ...prev, [key]: value }))}
+              />
             </div>
           ) : selectedWork === null ? (
             <div className="flex items-center justify-center h-full">
@@ -714,180 +709,13 @@ export default function WorkDetailPage() {
                 )}
               </div>
 
-              {/* 저작물정보 섹션 */}
-              <MetaSection title="저작물정보" color="blue">
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-y-4 gap-x-6">
-                  <MetaField
-                    label="저작물명"
-                    value={selectedWork.work_name}
-                    editing={editingMeta}
-                    editValue={metaForm.work_name}
-                    onChange={(v) =>
-                      setMetaForm((p) => ({ ...p, work_name: v }))
-                    }
-                  />
-                  <MetaField
-                    label="유형"
-                    value={
-                      selectedWork.work_type
-                        ? (WORK_TYPE_LABELS[selectedWork.work_type] ??
-                          selectedWork.work_type)
-                        : null
-                    }
-                    editing={editingMeta}
-                    editValue={metaForm.work_type}
-                    editType="select"
-                    selectOptions={[
-                      { value: "", label: "선택" },
-                      { value: "image", label: "이미지" },
-                      { value: "text", label: "텍스트" },
-                      { value: "audio", label: "오디오" },
-                      { value: "video", label: "영상" },
-                    ]}
-                    onChange={(v) =>
-                      setMetaForm((p) => ({ ...p, work_type: v }))
-                    }
-                  />
-                  <MetaField
-                    label="디지털화형태"
-                    value={selectedWork.digital_format}
-                    editing={editingMeta}
-                    editValue={metaForm.digital_format}
-                    onChange={(v) =>
-                      setMetaForm((p) => ({ ...p, digital_format: v }))
-                    }
-                  />
-                  <MetaField
-                    label="설명"
-                    value={selectedWork.description}
-                    editing={editingMeta}
-                    editValue={metaForm.description}
-                    onChange={(v) =>
-                      setMetaForm((p) => ({ ...p, description: v }))
-                    }
-                  />
-                  <MetaField
-                    label="주제어"
-                    value={selectedWork.keywords?.join(", ") || null}
-                    editing={editingMeta}
-                    editValue={metaForm.keywords}
-                    onChange={(v) =>
-                      setMetaForm((p) => ({ ...p, keywords: v }))
-                    }
-                    placeholder="쉼표로 구분"
-                  />
-                  <MetaField
-                    label="언어"
-                    value={selectedWork.language}
-                    editing={editingMeta}
-                    editValue={metaForm.language}
-                    onChange={(v) =>
-                      setMetaForm((p) => ({ ...p, language: v }))
-                    }
-                  />
-                  <MetaField
-                    label="제작일"
-                    value={selectedWork.created_date}
-                    editing={editingMeta}
-                    editValue={metaForm.created_date}
-                    onChange={(v) =>
-                      setMetaForm((p) => ({ ...p, created_date: v }))
-                    }
-                  />
-                  <MetaField
-                    label="계약서"
-                    value={
-                      contract.contract_filename ? (
-                        <span className="inline-flex items-center gap-1.5">
-                          {contract.contract_filename}
-                          <button
-                            onClick={handleFileDownload}
-                            className="text-gray-400 hover:text-primary-600 transition-colors"
-                            title="다운로드"
-                          >
-                            <Download className="w-3 h-3" />
-                          </button>
-                        </span>
-                      ) : null
-                    }
-                    editing={false}
-                  />
-                </div>
-              </MetaSection>
-
-              {/* 저작자정보 섹션 */}
-              <MetaSection title="저작자정보" color="green">
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-y-4 gap-x-6">
-                  <MetaField
-                    label="저작권자"
-                    value={selectedWork.creator}
-                    editing={editingMeta}
-                    editValue={metaForm.creator}
-                    onChange={(v) =>
-                      setMetaForm((p) => ({ ...p, creator: v }))
-                    }
-                  />
-                  <MetaField
-                    label="공동저작자"
-                    value={null}
-                    editing={false}
-                  />
-                  <MetaField
-                    label="저작인접권자"
-                    value={null}
-                    editing={false}
-                  />
-                </div>
-              </MetaSection>
-
-              {/* 권리정보 섹션 */}
-              <MetaSection title="권리정보" color="amber">
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-y-4 gap-x-6">
-                  <MetaField label="공개유형" value={null} editing={false} />
-                  <MetaField label="저작물성" value={null} editing={false} />
-                  <MetaField
-                    label="비보호저작물"
-                    value={null}
-                    editing={false}
-                  />
-                  <MetaField
-                    label="업무상저작물"
-                    value={null}
-                    editing={false}
-                  />
-                  <MetaField
-                    label="상업적이용허락"
-                    value={selectedWork.usage_scope}
-                    editing={editingMeta}
-                    editValue={metaForm.usage_scope}
-                    onChange={(v) =>
-                      setMetaForm((p) => ({ ...p, usage_scope: v }))
-                    }
-                  />
-                  <MetaField
-                    label="저작재산권"
-                    value={selectedWork.copyright_period}
-                    editing={editingMeta}
-                    editValue={metaForm.copyright_period}
-                    onChange={(v) =>
-                      setMetaForm((p) => ({ ...p, copyright_period: v }))
-                    }
-                  />
-                  <MetaField
-                    label="공동저작자동의"
-                    value={
-                      selectedWork.contract_metadata?.consent_status ?? null
-                    }
-                    editing={false}
-                  />
-                  <MetaField
-                    label="유효기간"
-                    value={selectedWork.copyright_period}
-                    editing={false}
-                  />
-                  <MetaField label="초상권" value={null} editing={false} />
-                </div>
-              </MetaSection>
+              <WorkMetadataTable
+                work={selectedWork}
+                contractFilename={contract.contract_filename}
+                editing={editingMeta}
+                form={metaForm}
+                onChange={(key, value) => setMetaForm((p) => ({ ...p, [key]: value }))}
+              />
             </div>
           )}
         </div>
@@ -1258,6 +1086,294 @@ function JsonRenderer({ data, depth = 0 }: { data: unknown; depth?: number }) {
   }
 
   return <span className="text-sm text-gray-900">{String(data)}</span>
+}
+
+/** ── 테이블 형태 메타데이터 뷰어/에디터 (계약서용) ── */
+function MetadataTable({
+  data,
+  editing,
+  form,
+  onChange,
+}: {
+  data: Record<string, unknown>
+  editing: boolean
+  form: Record<string, string>
+  onChange: (key: string, value: string) => void
+}) {
+  const entries = Object.entries(data)
+  const simpleEntries = entries.filter(
+    ([, v]) => typeof v !== "object" || v === null
+  )
+  const complexEntries = entries.filter(
+    ([, v]) => typeof v === "object" && v !== null
+  )
+
+  return (
+    <div className="space-y-4">
+      {/* 단순 필드 테이블 */}
+      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <table className="w-full">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-200">
+              <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 w-[160px]">항목</th>
+              <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">값</th>
+            </tr>
+          </thead>
+          <tbody>
+            {simpleEntries.map(([key, value]) => (
+              <tr key={key} className="border-b border-gray-100 hover:bg-gray-50">
+                <td className="px-4 py-2.5 text-sm text-gray-500 font-medium align-top">{getLabel(key)}</td>
+                <td className="px-4 py-2.5 text-sm text-gray-900">
+                  {editing ? (
+                    typeof value === "boolean" ? (
+                      <select
+                        value={form[key] ?? (value ? "true" : "false")}
+                        onChange={(e) => onChange(key, e.target.value)}
+                        className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      >
+                        <option value="true">해당</option>
+                        <option value="false">해당없음</option>
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={form[key] ?? String(value ?? "")}
+                        onChange={(e) => onChange(key, e.target.value)}
+                        className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    )
+                  ) : value === null || value === undefined || value === "" ? (
+                    <span className="text-gray-400 italic">미식별</span>
+                  ) : typeof value === "boolean" ? (
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${value ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                      {value ? "해당" : "해당없음"}
+                    </span>
+                  ) : (
+                    String(value)
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 중첩 객체/배열 - 접힘 가능 */}
+      {complexEntries.map(([key, value]) => (
+        <CollapsibleSection key={key} label={getLabel(key)} data={value} editing={editing} form={form} onChange={onChange} prefix={key} />
+      ))}
+    </div>
+  )
+}
+
+/** 접힘/펼침 가능한 하위 섹션 */
+function CollapsibleSection({
+  label,
+  data,
+  editing,
+  form,
+  onChange,
+  prefix,
+}: {
+  label: string
+  data: unknown
+  editing: boolean
+  form: Record<string, string>
+  onChange: (key: string, value: string) => void
+  prefix: string
+}) {
+  const [open, setOpen] = useState(false)
+  const count = Array.isArray(data) ? data.length : Object.keys(data as Record<string, unknown>).length
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors"
+      >
+        <span className="text-sm font-medium text-gray-700">
+          {open ? "▼" : "▶"} {label} ({count}건)
+        </span>
+      </button>
+      {open && (
+        <div className="p-3">
+          {Array.isArray(data) ? (
+            <div className="space-y-2">
+              {data.map((item, i) => (
+                <div key={i} className="border border-gray-100 rounded-lg overflow-hidden">
+                  {typeof item === "object" && item !== null ? (
+                    <table className="w-full">
+                      <tbody>
+                        {Object.entries(item as Record<string, unknown>).map(([k, v]) => (
+                          <tr key={k} className="border-b border-gray-50 hover:bg-gray-50">
+                            <td className="px-3 py-1.5 text-xs text-gray-500 font-medium w-[120px] align-top">{getLabel(k)}</td>
+                            <td className="px-3 py-1.5 text-xs text-gray-900">
+                              {editing ? (
+                                <input
+                                  type="text"
+                                  value={form[`${prefix}.${i}.${k}`] ?? String(v ?? "")}
+                                  onChange={(e) => onChange(`${prefix}.${i}.${k}`, e.target.value)}
+                                  className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                />
+                              ) : v === null || v === undefined ? (
+                                <span className="text-gray-400 italic">-</span>
+                              ) : (
+                                String(v)
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="px-3 py-1.5 text-xs text-gray-900">{String(item)}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : typeof data === "object" && data !== null ? (
+            <table className="w-full">
+              <tbody>
+                {Object.entries(data as Record<string, unknown>).map(([k, v]) => (
+                  <tr key={k} className="border-b border-gray-50 hover:bg-gray-50">
+                    <td className="px-3 py-1.5 text-sm text-gray-500 font-medium w-[140px] align-top">{getLabel(k)}</td>
+                    <td className="px-3 py-1.5 text-sm text-gray-900">
+                      {typeof v === "object" && v !== null ? (
+                        <CollapsibleSection label={getLabel(k)} data={v} editing={editing} form={form} onChange={onChange} prefix={`${prefix}.${k}`} />
+                      ) : editing ? (
+                        typeof v === "boolean" ? (
+                          <select
+                            value={form[`${prefix}.${k}`] ?? (v ? "true" : "false")}
+                            onChange={(e) => onChange(`${prefix}.${k}`, e.target.value)}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          >
+                            <option value="true">해당</option>
+                            <option value="false">해당없음</option>
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            value={form[`${prefix}.${k}`] ?? String(v ?? "")}
+                            onChange={(e) => onChange(`${prefix}.${k}`, e.target.value)}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          />
+                        )
+                      ) : v === null || v === undefined ? (
+                        <span className="text-gray-400 italic">-</span>
+                      ) : typeof v === "boolean" ? (
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${v ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                          {v ? "해당" : "해당없음"}
+                        </span>
+                      ) : (
+                        String(v)
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** ── 저작물 메타데이터 테이블 (20개 항목) ── */
+function WorkMetadataTable({
+  work,
+  contractFilename,
+  editing,
+  form,
+  onChange,
+}: {
+  work: Work
+  contractFilename: string | null
+  editing: boolean
+  form: Record<string, string>
+  onChange: (key: string, value: string) => void
+}) {
+  const sections = [
+    {
+      title: "저작물정보",
+      color: "border-l-blue-500",
+      fields: [
+        { key: "work_name", label: "저작물명", value: work.work_name },
+        { key: "work_type", label: "유형", value: work.work_type ? (WORK_TYPE_LABELS[work.work_type] ?? work.work_type) : null },
+        { key: "digital_format", label: "디지털화형태", value: work.digital_format },
+        { key: "description", label: "설명", value: work.description },
+        { key: "keywords", label: "주제어", value: work.keywords?.join(", ") || null },
+        { key: "language", label: "언어", value: work.language },
+        { key: "created_date", label: "제작일", value: work.created_date },
+        { key: "creator", label: "계약서", value: contractFilename },
+      ],
+    },
+    {
+      title: "저작자정보",
+      color: "border-l-green-500",
+      fields: [
+        { key: "copyright_holder", label: "저작권자", value: work.copyright_holder },
+        { key: "co_authors", label: "공동저작자", value: work.co_authors },
+        { key: "neighboring_rights_holder", label: "저작인접권자", value: work.neighboring_rights_holder },
+      ],
+    },
+    {
+      title: "권리정보",
+      color: "border-l-amber-500",
+      fields: [
+        { key: "disclosure_type", label: "공개유형", value: work.disclosure_type },
+        { key: "copyrightability", label: "저작물성", value: work.copyrightability },
+        { key: "non_protected_work", label: "비보호저작물", value: work.non_protected_work },
+        { key: "work_for_hire", label: "업무상저작물", value: work.work_for_hire },
+        { key: "commercial_use", label: "상업적이용허락", value: work.commercial_use },
+        { key: "property_rights", label: "저작재산권", value: work.property_rights },
+        { key: "co_author_consent", label: "공동저작자동의", value: work.co_author_consent },
+        { key: "validity_period", label: "유효기간", value: work.validity_period },
+        { key: "portrait_rights", label: "초상권", value: work.portrait_rights },
+      ],
+    },
+  ]
+
+  return (
+    <div className="space-y-4">
+      {sections.map((section) => (
+        <div key={section.title} className={`bg-white border border-gray-200 rounded-lg overflow-hidden border-l-4 ${section.color}`}>
+          <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200">
+            <span className="text-sm font-bold text-gray-700">{section.title}</span>
+          </div>
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-100">
+                <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 w-[140px]">항목</th>
+                <th className="text-left px-4 py-2 text-xs font-medium text-gray-500">값</th>
+              </tr>
+            </thead>
+            <tbody>
+              {section.fields.map((field) => (
+                <tr key={field.key} className="border-b border-gray-50 hover:bg-gray-50">
+                  <td className="px-4 py-2 text-sm text-gray-500 font-medium align-top">{field.label}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900">
+                    {editing && field.key !== "creator" ? (
+                      <input
+                        type="text"
+                        value={form[field.key] ?? String(field.value ?? "")}
+                        onChange={(e) => onChange(field.key, e.target.value)}
+                        className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    ) : field.value === null || field.value === undefined || field.value === "" ? (
+                      <span className="text-gray-400 italic">미식별</span>
+                    ) : (
+                      field.value
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 /** JSON을 flat key-value로 변환 (예: "parties.0.name" → "박동우") */
