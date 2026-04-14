@@ -1039,8 +1039,6 @@ const FIELD_LABELS: Record<string, string> = {
   license_type: "라이선스 유형",
   integrity_right_waiver: "동일성유지권 포기",
   modification_allowed: "변경 허용",
-  collected_data_types: "수집 항목",
-  data_types: "제공 항목",
 }
 
 function getLabel(key: string): string {
