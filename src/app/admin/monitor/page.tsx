@@ -302,7 +302,10 @@ export default function AdminMonitorPage() {
               {filteredItems.map((item) => {
                 const isExpanded = expandedIds.has(item.id)
                 const logs = item.pipeline_log || []
-                const isProcessing = ["uploaded", "ocr_processing", "classifying"].includes(item.status)
+                const isProcessingStatus = ["ocr_processing", "classifying"].includes(item.status)
+                const minutesSinceUpdate = (Date.now() - new Date(item.updated_at).getTime()) / 60000
+                const isTimedOut = isProcessingStatus && minutesSinceUpdate > 5
+                const isProcessing = isProcessingStatus && !isTimedOut
 
                 return (
                   <div key={item.id} className="border-b border-gray-100">
@@ -333,8 +336,8 @@ export default function AdminMonitorPage() {
                             color: STATUS_META[item.status]?.color || "#999",
                           }}
                         >
-                          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STATUS_META[item.status]?.color || "#999" }} />
-                          {STATUS_META[item.status]?.label || item.status}
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: isTimedOut ? "#EF4444" : (STATUS_META[item.status]?.color || "#999") }} />
+                          {isTimedOut ? "타임아웃" : (STATUS_META[item.status]?.label || item.status)}
                         </span>
                       </div>
                       <div>
