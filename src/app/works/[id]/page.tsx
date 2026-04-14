@@ -165,11 +165,19 @@ export default function WorkDetailPage() {
             .eq("contract_id", id)
             .order("created_at", { ascending: true })
 
+          // 등록자 프로필 조회
+          const { data: profileData } = await supabase
+            .from("profiles")
+            .select("name, organization")
+            .eq("id", contractData.user_id)
+            .single()
+
           setContract({
             ...contractData,
             works: worksData || [],
             clauses: clausesData || [],
             works_count: worksData?.length || 0,
+            profile: profileData || undefined,
           })
         } catch {
           setContract(null)
@@ -329,7 +337,11 @@ export default function WorkDetailPage() {
               label="등록일"
               value={formatDate(contract.created_at)}
             />
-            <LeftField label="등록자" value="홍길동 (mock)" />
+            <LeftField label="등록자" value={
+              contract.profile
+                ? `${contract.profile.organization || ""} ${contract.profile.name || ""}`.trim() || contract.user_id
+                : contract.user_id
+            } />
             <LeftField
               label="상태"
               value={<StatusBadge status={contract.status} />}
