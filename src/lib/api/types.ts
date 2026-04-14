@@ -173,29 +173,53 @@ export interface SSUErrorResponse {
 // 프론트엔드에서 키-값을 동적으로 렌더링합니다.
 
 // ========================================
-// HMC API 응답 타입 (예상 - 스펙 수신 후 수정)
+// HMC API 타입 (실제 스펙 반영 - POST /api/predict)
 // ========================================
 
-export interface HMCClassifyResponse {
-  success: boolean
-  request_id: string
-  // 분류 결과
-  kogl_type: 1 | 2 | 3 | 4
-  confidence: number
-  // 판단 근거 조항
-  evidence_clauses: HMCEvidenceClause[]
-  // 정책 제약
-  policy_constraints?: {
-    commercial_use: boolean
-    derivative_work: boolean
-    territory: string
-    term: string
-  }
+// 요청
+export interface HMCPredictRequest {
+  text: string                          // 계약서 OCR 텍스트 (필수)
+  engine_id?: string                    // 엔진 ID
+  file_name?: string                    // 파일명
+  strip_article_titles?: boolean        // 조항 제목 제거 (기본: true)
+  normalize_whitespace?: boolean        // 공백 정규화 (기본: true)
+  remove_page_artifacts?: boolean       // 페이지 아티팩트 제거 (기본: true)
+  prediction_threshold?: number         // 예측 임계값 (기본: 0.55)
+  evidence_threshold?: number           // 근거 임계값 (기본: 0.30)
+  max_evidence_sentences?: number       // 최대 근거 문장 수 (기본: 10)
+  auto_detect_form?: boolean            // 신형/구형 자동 감지 (기본: true)
+  max_length?: number                   // 최대 토큰 길이 (기본: 512)
 }
 
-export interface HMCEvidenceClause {
-  clause_type: string
-  text: string
-  page_number?: number
+// 응답
+export interface HMCPredictResponse {
+  ok: boolean
+  file_name: string
+  device: string
+  selected_engine_id: string
+  selected_engine_name: string
+  resolved_engine_id: string
+  resolved_engine_name: string
+  resolved_model_dir: string
+  detected_form_type: string            // "신형" | "구형"
+  preprocessed_text: string
+  predicted_type: string                // "유형1" ~ "유형4"
+  predicted_display: string             // "유형2" 또는 "유형2 (임계값 미달)"
+  predicted_description: string         // "출처표시 + 비영리 + 변경허용"
   confidence: number
+  probabilities: Record<string, number> // { "유형1": 0.05, "유형2": 0.81, ... }
+  evidence_sentences: HMCEvidenceSentence[]
+  settings_used: Record<string, unknown>
+  settings_path: string
 }
+
+// 근거 문장
+export interface HMCEvidenceSentence {
+  sentence: string                      // 근거 문장 원문
+  best_type: string                     // "유형2" 등
+  score: number                         // 점수 (0~1)
+}
+
+// 하위 호환용 별칭
+export type HMCClassifyResponse = HMCPredictResponse
+export type HMCEvidenceClause = HMCEvidenceSentence

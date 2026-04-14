@@ -27,7 +27,13 @@ export {
 } from "./ocr"
 
 // HMC API
-export { classifyKoglType, mapHMCToKoglType, mapHMCToContractClauses } from "./classifier"
+export {
+  classifyKoglType,
+  mapHMCToKoglType,
+  mapHMCToContractClauses,
+  checkHMCHealth,
+  getHMCEngines,
+} from "./classifier"
 
 // 타입
 export type {
@@ -41,6 +47,9 @@ export type {
   SSUDownloadParams,
   SSUHealthResponse,
   SSUErrorResponse,
+  HMCPredictRequest,
+  HMCPredictResponse,
+  HMCEvidenceSentence,
   HMCClassifyResponse,
   HMCEvidenceClause,
 } from "./types"
