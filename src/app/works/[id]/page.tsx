@@ -1035,10 +1035,7 @@ const FIELD_LABELS: Record<string, string> = {
   video: "영상",
   meditation: "명상",
   lighting_equipment: "조명장비",
-  work_names: "저작물명 목록",
   license_type: "라이선스 유형",
-  integrity_right_waiver: "동일성유지권 포기",
-  modification_allowed: "변경 허용",
 }
 
 function getLabel(key: string): string {
