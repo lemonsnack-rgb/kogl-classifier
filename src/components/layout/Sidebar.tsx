@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { FileSearch, Settings, User, LogOut, ExternalLink } from "lucide-react"
+import { FileSearch, Settings, User, LogOut, ExternalLink, Activity } from "lucide-react"
 import { isSupabaseConfigured, createClient } from "@/lib/supabase/client"
 import type { UserRole } from "@/types"
 
@@ -81,7 +81,10 @@ export default function Sidebar() {
   // 관리자 메뉴 표시 여부
   const bottomMenuItems = [
     ...(userRole === "admin"
-      ? [{ href: "/admin/users", label: "관리자", icon: Settings }]
+      ? [
+          { href: "/admin/monitor", label: "검사 모니터링", icon: Activity },
+          { href: "/admin/users", label: "회원관리", icon: Settings },
+        ]
       : []),
     { href: "/mypage", label: "마이페이지", icon: User },
   ]

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect, Suspense } from "react"
+import { useState, useMemo, useEffect, useCallback, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import AppLayout from "@/components/layout/AppLayout"
 import { getContracts } from "@/lib/mock/data"
@@ -57,42 +57,54 @@ function WorksPage() {
   const [activeQuery, setActiveQuery] = useState("")
 
   // Supabase에서 실제 데이터 로드
-  useEffect(() => {
-    async function loadContracts() {
-      if (!isSupabaseConfigured()) {
+  const loadContracts = useCallback(async () => {
+    if (!isSupabaseConfigured()) {
+      setAllContracts([])
+      setLoading(false)
+      return
+    }
+
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
         setAllContracts([])
         setLoading(false)
         return
       }
 
-      try {
-        const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
-          setAllContracts([])
-          setLoading(false)
-          return
-        }
+      const { data, error } = await supabase
+        .from("contracts")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
 
-        const { data, error } = await supabase
-          .from("contracts")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-
-        if (error) {
-          console.error("계약서 로드 실패:", error.message)
-          setAllContracts([])
-        } else {
-          setAllContracts(data || [])
-        }
-      } catch {
+      if (error) {
+        console.error("계약서 로드 실패:", error.message)
         setAllContracts([])
+      } else {
+        setAllContracts(data || [])
       }
-      setLoading(false)
+    } catch {
+      setAllContracts([])
     }
-    loadContracts()
+    setLoading(false)
   }, [])
+
+  // 초기 로드
+  useEffect(() => {
+    loadContracts()
+  }, [loadContracts])
+
+  // 자동 폴링: 처리 중인 건이 있으면 10초마다 갱신
+  useEffect(() => {
+    const hasProcessing = allContracts.some((c) =>
+      ["uploaded", "ocr_processing", "classifying"].includes(c.status)
+    )
+    if (!hasProcessing) return
+    const interval = setInterval(loadContracts, 10000)
+    return () => clearInterval(interval)
+  }, [allContracts, loadContracts])
 
   const contracts = useMemo(() => {
     if (!activeQuery.trim()) return allContracts
