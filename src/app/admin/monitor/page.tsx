@@ -26,6 +26,8 @@ interface MonitorItem {
   id: string
   inspection_title: string | null
   contract_filename: string | null
+  contract_file_url: string | null
+  document_type: string | null
   status: ContractStatus
   gongnuri_type: KoglType | null
   gongnuri_confidence: number | null
@@ -70,7 +72,7 @@ export default function AdminMonitorPage() {
 
       const { data, error } = await supabase
         .from("contracts")
-        .select("id, inspection_title, contract_filename, status, gongnuri_type, gongnuri_confidence, pipeline_log, user_id, created_at, updated_at")
+        .select("id, inspection_title, contract_filename, contract_file_url, document_type, status, gongnuri_type, gongnuri_confidence, pipeline_log, user_id, created_at, updated_at")
         .order("created_at", { ascending: false })
         .limit(100)
 
@@ -128,6 +130,75 @@ export default function AdminMonitorPage() {
       else next.add(id)
       return next
     })
+  }
+
+  // 삭제
+  const handleDelete = async (contractId: string) => {
+    if (!confirm("이 검사 건을 삭제하시겠습니까? 관련 저작물, 근거 조항도 함께 삭제됩니다.")) return
+
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = createClient()
+        // 관련 데이터 삭제 (순서 중요: FK 참조 순)
+        await supabase.from("contract_clauses").delete().eq("contract_id", contractId)
+        await supabase.from("works").delete().eq("contract_id", contractId)
+        await supabase.from("contracts").delete().eq("id", contractId)
+      } catch (err) {
+        alert("삭제 중 오류: " + (err instanceof Error ? err.message : "알 수 없는 오류"))
+        return
+      }
+    }
+    setItems((prev) => prev.filter((i) => i.id !== contractId))
+  }
+
+  // 재검사
+  const handleReprocess = async (item: MonitorItem) => {
+    if (!confirm(`"${item.inspection_title || item.contract_filename}" 건을 재검사하시겠습니까? 기존 결과는 초기화됩니다.`)) return
+
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = createClient()
+
+        // 기존 결과 초기화
+        await supabase.from("contract_clauses").delete().eq("contract_id", item.id)
+        await supabase.from("contracts").update({
+          status: "uploaded",
+          gongnuri_type: null,
+          gongnuri_confidence: null,
+          gongnuri_evidence: null,
+          contract_metadata: null,
+          ocr_text: null,
+          pipeline_log: [],
+        }).eq("id", item.id)
+
+        // 파일 다운로드 → 파이프라인 호출
+        if (item.contract_file_url) {
+          const bucket = "contracts"
+          const { data: fileData } = await supabase.storage.from(bucket).download(item.contract_file_url)
+
+          if (fileData) {
+            const PIPELINE_URL = "https://ilwang-kogl-pipeline.hf.space"
+            const form = new FormData()
+            form.append("file", fileData, item.contract_filename || "document.pdf")
+            form.append("contract_id", item.id)
+            form.append("document_type", item.document_type || "기타문서")
+            form.append("file_name", item.contract_filename || "document.pdf")
+
+            fetch(`${PIPELINE_URL}/process`, { method: "POST", body: form })
+              .catch((err) => console.error("재검사 오류:", err))
+
+            alert("재검사가 시작되었습니다. 2~3분 후 결과가 업데이트됩니다.")
+          } else {
+            alert("파일 다운로드 실패. 원본 파일이 삭제되었을 수 있습니다.")
+          }
+        } else {
+          alert("파일 정보가 없어 재검사할 수 없습니다.")
+        }
+      } catch (err) {
+        alert("재검사 오류: " + (err instanceof Error ? err.message : "알 수 없는 오류"))
+      }
+    }
+    fetchData()
   }
 
   const filteredItems = statusFilter === "all"
@@ -215,117 +286,115 @@ export default function AdminMonitorPage() {
           ) : filteredItems.length === 0 ? (
             <div className="p-8 text-center text-sm text-gray-400">데이터 없음</div>
           ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 w-8"></th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">검사명</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">등록자</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">상태</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">유형</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">등록일</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredItems.map((item) => {
-                  const isExpanded = expandedIds.has(item.id)
-                  const logs = item.pipeline_log || []
-                  const isProcessing = ["uploaded", "ocr_processing", "classifying"].includes(item.status)
+            <div>
+              {/* 헤더 */}
+              <div className="grid grid-cols-[32px_1fr_120px_90px_80px_140px_100px] gap-0 border-b border-gray-200 bg-gray-50 px-4 py-2.5">
+                <div />
+                <div className="text-xs font-medium text-gray-500">검사명</div>
+                <div className="text-xs font-medium text-gray-500">등록자</div>
+                <div className="text-xs font-medium text-gray-500">상태</div>
+                <div className="text-xs font-medium text-gray-500">유형</div>
+                <div className="text-xs font-medium text-gray-500">등록일</div>
+                <div className="text-xs font-medium text-gray-500">관리</div>
+              </div>
 
-                  return (
-                    <tr key={item.id} className="border-b border-gray-100">
-                      <td colSpan={6} className="p-0">
-                        {/* 메인 행 */}
-                        <button
-                          onClick={() => toggleExpand(item.id)}
-                          className="w-full flex items-center hover:bg-gray-50 transition-colors"
-                        >
-                          <td className="px-4 py-3 w-8">
-                            {logs.length > 0 ? (
-                              isExpanded ? (
-                                <ChevronDown className="w-4 h-4 text-gray-400" />
-                              ) : (
-                                <ChevronRight className="w-4 h-4 text-gray-400" />
-                              )
-                            ) : (
-                              <span className="w-4 h-4 block" />
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900 font-medium text-left">
-                            <div className="flex items-center gap-2">
-                              {isProcessing && <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin flex-shrink-0" />}
-                              <span className="truncate max-w-[200px]">
-                                {item.inspection_title || item.contract_filename || "-"}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-xs text-gray-500 text-left">
-                            {item.user_org} {item.user_name}
-                          </td>
-                          <td className="px-4 py-3 text-left">
-                            <span
-                              className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
-                              style={{
-                                backgroundColor: (STATUS_META[item.status]?.color || "#999") + "18",
-                                color: STATUS_META[item.status]?.color || "#999",
-                              }}
-                            >
-                              <span
-                                className="w-1.5 h-1.5 rounded-full"
-                                style={{ backgroundColor: STATUS_META[item.status]?.color || "#999" }}
-                              />
-                              {STATUS_META[item.status]?.label || item.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-left">
-                            {item.gongnuri_type ? (
-                              <span
-                                className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold text-white"
-                                style={{ backgroundColor: KOGL_TYPES[item.gongnuri_type]?.color || "#999" }}
-                              >
-                                {KOGL_TYPES[item.gongnuri_type]?.label || item.gongnuri_type}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-gray-400">-</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-xs text-gray-500 text-left">
-                            {formatDateTime(item.created_at)}
-                          </td>
-                        </button>
+              {/* 행 */}
+              {filteredItems.map((item) => {
+                const isExpanded = expandedIds.has(item.id)
+                const logs = item.pipeline_log || []
+                const isProcessing = ["uploaded", "ocr_processing", "classifying"].includes(item.status)
 
-                        {/* 파이프라인 로그 (펼침) */}
-                        {isExpanded && logs.length > 0 && (
-                          <div className="px-12 pb-4">
-                            <div className="bg-gray-50 rounded-lg border border-gray-200 p-3">
-                              <p className="text-xs font-medium text-gray-500 mb-2">파이프라인 로그</p>
-                              <div className="space-y-1.5">
-                                {logs.map((log, i) => (
-                                  <div key={i} className="flex items-start gap-2">
-                                    <LogIcon status={log.status} />
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-xs font-medium text-gray-700">{log.step}</span>
-                                        <span className="text-xs text-gray-400">
-                                          {log.timestamp ? formatDateTime(log.timestamp) : ""}
-                                        </span>
-                                      </div>
-                                      {log.detail && (
-                                        <p className="text-xs text-gray-500 mt-0.5 break-all">{log.detail}</p>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
+                return (
+                  <div key={item.id} className="border-b border-gray-100">
+                    {/* 메인 행 */}
+                    <div
+                      className="grid grid-cols-[32px_1fr_120px_90px_80px_140px_100px] gap-0 items-center px-4 py-3 hover:bg-gray-50 cursor-pointer"
+                      onClick={() => toggleExpand(item.id)}
+                    >
+                      <div>
+                        {logs.length > 0 ? (
+                          isExpanded ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />
+                        ) : (
+                          <span className="w-4 h-4 block" />
                         )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                      </div>
+                      <div className="text-sm text-gray-900 font-medium truncate pr-2">
+                        <div className="flex items-center gap-2">
+                          {isProcessing && <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin flex-shrink-0" />}
+                          <span className="truncate">{item.inspection_title || item.contract_filename || "-"}</span>
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-500 truncate">{item.user_org} {item.user_name}</div>
+                      <div>
+                        <span
+                          className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
+                          style={{
+                            backgroundColor: (STATUS_META[item.status]?.color || "#999") + "18",
+                            color: STATUS_META[item.status]?.color || "#999",
+                          }}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STATUS_META[item.status]?.color || "#999" }} />
+                          {STATUS_META[item.status]?.label || item.status}
+                        </span>
+                      </div>
+                      <div>
+                        {item.gongnuri_type ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold text-white" style={{ backgroundColor: KOGL_TYPES[item.gongnuri_type]?.color || "#999" }}>
+                            {KOGL_TYPES[item.gongnuri_type]?.label || item.gongnuri_type}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-500">{formatDateTime(item.created_at)}</div>
+                      <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => handleReprocess(item)}
+                          disabled={isProcessing}
+                          className="text-xs font-medium text-blue-600 hover:text-blue-700 disabled:text-gray-300 disabled:cursor-not-allowed"
+                        >
+                          재검사
+                        </button>
+                        <button
+                          onClick={() => handleDelete(item.id)}
+                          className="text-xs font-medium text-red-600 hover:text-red-700"
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 파이프라인 로그 */}
+                    {isExpanded && logs.length > 0 && (
+                      <div className="px-12 pb-4">
+                        <div className="bg-gray-50 rounded-lg border border-gray-200 p-3">
+                          <p className="text-xs font-medium text-gray-500 mb-2">파이프라인 로그</p>
+                          <div className="space-y-1.5">
+                            {logs.map((log, i) => (
+                              <div key={i} className="flex items-start gap-2">
+                                <LogIcon status={log.status} />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-medium text-gray-700">{log.step}</span>
+                                    <span className="text-xs text-gray-400">{log.timestamp ? formatDateTime(log.timestamp) : ""}</span>
+                                  </div>
+                                  {log.detail && <p className="text-xs text-gray-500 mt-0.5 break-all">{log.detail}</p>}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {isExpanded && logs.length === 0 && (
+                      <div className="px-12 pb-4">
+                        <p className="text-xs text-gray-400 italic">파이프라인 로그 없음</p>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           )}
         </div>
       </div>
