@@ -16,11 +16,21 @@ const externalLinks = [
   { href: "https://www.kcisa.kr/", label: "한국문화정보원" },
 ]
 
+// localStorage 캐시에서 먼저 읽어 깜빡임 방지
+function getCachedProfile(): { role: UserRole; name: string } {
+  try {
+    const cached = localStorage.getItem("sidebar_profile")
+    if (cached) return JSON.parse(cached)
+  } catch { /* ignore */ }
+  return { role: "user", name: "" }
+}
+
 export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const [userRole, setUserRole] = useState<UserRole>("user")
-  const [userName, setUserName] = useState("")
+  const cached = getCachedProfile()
+  const [userRole, setUserRole] = useState<UserRole>(cached.role)
+  const [userName, setUserName] = useState(cached.name)
 
   useEffect(() => {
     if (isSupabaseConfigured()) {
@@ -36,12 +46,14 @@ export default function Sidebar() {
               .select("role, name, organization")
               .eq("id", user.id)
               .single()
-            if (profile?.role) {
-              setUserRole(profile.role as UserRole)
-            }
+            const role = (profile?.role as UserRole) || "user"
             const org = profile?.organization || ""
             const name = profile?.name || user.email || ""
-            setUserName(org ? `${org} ${name}` : name)
+            const displayName = org ? `${org} ${name}` : name
+            setUserRole(role)
+            setUserName(displayName)
+            // 캐시 저장
+            localStorage.setItem("sidebar_profile", JSON.stringify({ role, name: displayName }))
           }
         } catch {
           // ignore
@@ -65,6 +77,7 @@ export default function Sidebar() {
   }, [])
 
   const handleLogout = async () => {
+    localStorage.removeItem("sidebar_profile")
     if (isSupabaseConfigured()) {
       try {
         const supabase = createClient()
