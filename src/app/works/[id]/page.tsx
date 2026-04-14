@@ -1112,7 +1112,12 @@ function MetadataTable({
   form: Record<string, string>
   onChange: (key: string, value: string) => void
 }) {
-  const entries = Object.entries(data)
+  // 내부 처리 필드 제외
+  const HIDDEN_KEYS = new Set([
+    "checkbox_info", "processing_info", "checkbox_pattern_detected",
+    "extraction_confidence", "checkbox_fields_found", "pattern_detected",
+  ])
+  const entries = Object.entries(data).filter(([k]) => !HIDDEN_KEYS.has(k))
   const simpleEntries = entries.filter(
     ([, v]) => typeof v !== "object" || v === null
   )
