@@ -221,7 +221,22 @@ export default function WorksNewPage() {
         if (workInsertError) throw new Error(`저작물 등록 실패: ${workInsertError.message}`)
       }
 
+      // 5. 파이프라인 호출 (숭실대 OCR → HMC 분류) - 백그라운드
+      // 먼저 목록으로 이동 후 백그라운드에서 처리
       router.push("/works?success=1")
+
+      // 백그라운드에서 파이프라인 실행 (페이지 이동 후에도 계속)
+      fetch("/api/pipeline/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contractId,
+          contractFileUrl: contractFileUrl,
+          contractFilename: contractFile?.file.name || "document.pdf",
+          documentType,
+        }),
+      }).catch((err) => console.error("파이프라인 오류:", err))
+
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "업로드 중 오류가 발생했습니다.")
       setIsSubmitting(false)
