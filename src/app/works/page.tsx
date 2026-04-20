@@ -14,6 +14,11 @@ function formatDateTime(dateStr: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
 }
 
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+}
+
 /** 저작물 유형 목록에서 대표 유형 추출 */
 function getWorkTypes(contract: { works?: { work_type: string | null }[] }): string {
   const types = new Set<string>()
@@ -95,7 +100,20 @@ function WorksPage() {
         console.error("계약서 로드 실패:", error.message)
         setAllContracts([])
       } else {
-        setAllContracts(data || [])
+        const contracts = data || []
+        const userIds = Array.from(new Set(contracts.map((c) => c.user_id).filter(Boolean)))
+        if (userIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("id, name, organization")
+            .in("id", userIds)
+          const profileMap = new Map((profiles || []).map((p) => [p.id, p]))
+          setAllContracts(
+            contracts.map((c) => ({ ...c, profile: profileMap.get(c.user_id) || undefined }))
+          )
+        } else {
+          setAllContracts(contracts)
+        }
       }
     } catch {
       setAllContracts([])
@@ -236,10 +254,12 @@ function WorksPage() {
                 <StatusBadge status={contract.status} />
               </div>
 
-              {/* 저작물 건수 / 날짜 */}
+              {/* 저작물 건수 / 검사자 │ 날짜 */}
               <div className="flex items-center justify-between text-xs text-gray-500 mt-auto pt-3 border-t border-gray-100">
                 <span>저작물 {contract.works_count ?? 0}건</span>
-                <span>{formatDateTime(contract.created_at)}</span>
+                <span>
+                  {(contract.profile?.name || contract.user_id) + " │ " + formatDate(contract.created_at)}
+                </span>
               </div>
             </button>
           ))}
