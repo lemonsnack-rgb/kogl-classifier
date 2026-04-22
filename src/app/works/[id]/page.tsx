@@ -1202,7 +1202,7 @@ function MetadataTable({
                       />
                     )
                   ) : value === null || value === undefined || value === "" ? (
-                    <span className="text-gray-400 italic">미식별</span>
+                    <span className="text-gray-400">-</span>
                   ) : typeof value === "boolean" ? (
                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${value ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                       {value ? "해당" : "해당없음"}
@@ -1257,7 +1257,11 @@ function CollapsibleSection({
       </button>
       {open && (
         <div className="p-3">
-          {Array.isArray(data) ? (
+          {Array.isArray(data) && data.length === 0 ? (
+            <div className="px-3 py-2 text-sm text-gray-400">-</div>
+          ) : !Array.isArray(data) && typeof data === "object" && data !== null && Object.keys(data as Record<string, unknown>).length === 0 ? (
+            <div className="px-3 py-2 text-sm text-gray-400">-</div>
+          ) : Array.isArray(data) ? (
             <div className="space-y-2">
               {data.map((item, i) => (
                 <div key={i} className="border border-gray-100 rounded-lg overflow-hidden">
