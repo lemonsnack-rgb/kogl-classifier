@@ -1042,6 +1042,28 @@ function getLabel(key: string): string {
   return FIELD_LABELS[key] ?? key
 }
 
+/** 값이 실제로 존재하는지 재귀 판정 (null/undefined/""/"-"/공백, 전체 빈 객체·배열 모두 false) */
+function hasValue(v: unknown): boolean {
+  if (v === null || v === undefined) return false
+  if (typeof v === "string") {
+    const t = v.trim()
+    return t !== "" && t !== "-"
+  }
+  if (typeof v === "number" || typeof v === "boolean") return true
+  if (Array.isArray(v)) return v.some(hasValue)
+  if (typeof v === "object") return Object.values(v as Record<string, unknown>).some(hasValue)
+  return false
+}
+
+/** 실제 값이 있는 항목 개수 — 객체는 값이 있는 키 수, 배열은 값이 있는 원소 수 */
+function countMeaningful(data: unknown): number {
+  if (Array.isArray(data)) return data.filter(hasValue).length
+  if (data && typeof data === "object") {
+    return Object.values(data as Record<string, unknown>).filter(hasValue).length
+  }
+  return hasValue(data) ? 1 : 0
+}
+
 /** JSONB 동적 렌더러 - 중첩 객체/배열 지원 */
 function JsonRenderer({ data, depth = 0 }: { data: unknown; depth?: number }) {
   if (data === null || data === undefined) return <EmptyValue />
@@ -1195,10 +1217,12 @@ function MetadataTable({
         </table>
       </div>
 
-      {/* 중첩 객체/배열 - 접힘 가능 */}
-      {complexEntries.map(([key, value]) => (
-        <CollapsibleSection key={key} label={getLabel(key)} data={value} editing={editing} form={form} onChange={onChange} prefix={key} />
-      ))}
+      {/* 중첩 객체/배열 - 접힘 가능 (실제 값이 있는 섹션만 출력) */}
+      {complexEntries
+        .filter(([, value]) => countMeaningful(value) > 0)
+        .map(([key, value]) => (
+          <CollapsibleSection key={key} label={getLabel(key)} data={value} editing={editing} form={form} onChange={onChange} prefix={key} />
+        ))}
     </div>
   )
 }
@@ -1219,8 +1243,8 @@ function CollapsibleSection({
   onChange: (key: string, value: string) => void
   prefix: string
 }) {
-  const [open, setOpen] = useState(false)
-  const count = Array.isArray(data) ? data.length : Object.keys(data as Record<string, unknown>).length
+  const [open, setOpen] = useState(true)
+  const count = countMeaningful(data)
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
@@ -1236,12 +1260,17 @@ function CollapsibleSection({
         <div className="p-3">
           {Array.isArray(data) ? (
             <div className="space-y-2">
-              {data.map((item, i) => (
+              {data
+                .map((item, i) => ({ item, i }))
+                .filter(({ item }) => editing || hasValue(item))
+                .map(({ item, i }) => (
                 <div key={i} className="border border-gray-100 rounded-lg overflow-hidden">
                   {typeof item === "object" && item !== null ? (
                     <table className="w-full">
                       <tbody>
-                        {Object.entries(item as Record<string, unknown>).map(([k, v]) => (
+                        {Object.entries(item as Record<string, unknown>)
+                          .filter(([, v]) => editing || hasValue(v))
+                          .map(([k, v]) => (
                           <tr key={k} className="border-b border-gray-50 hover:bg-gray-50">
                             <td className="px-3 py-1.5 text-xs text-gray-500 font-medium w-[120px] align-top">{getLabel(k)}</td>
                             <td className="px-3 py-1.5 text-xs text-gray-900">
@@ -1271,7 +1300,9 @@ function CollapsibleSection({
           ) : typeof data === "object" && data !== null ? (
             <table className="w-full">
               <tbody>
-                {Object.entries(data as Record<string, unknown>).map(([k, v]) => (
+                {Object.entries(data as Record<string, unknown>)
+                  .filter(([, v]) => editing || hasValue(v))
+                  .map(([k, v]) => (
                   <tr key={k} className="border-b border-gray-50 hover:bg-gray-50">
                     <td className="px-3 py-1.5 text-sm text-gray-500 font-medium w-[140px] align-top">{getLabel(k)}</td>
                     <td className="px-3 py-1.5 text-sm text-gray-900">
