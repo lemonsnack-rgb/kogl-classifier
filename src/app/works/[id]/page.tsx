@@ -1217,12 +1217,10 @@ function MetadataTable({
         </table>
       </div>
 
-      {/* 중첩 객체/배열 - 접힘 가능 (실제 값이 있는 섹션만 출력) */}
-      {complexEntries
-        .filter(([, value]) => countMeaningful(value) > 0)
-        .map(([key, value]) => (
-          <CollapsibleSection key={key} label={getLabel(key)} data={value} editing={editing} form={form} onChange={onChange} prefix={key} />
-        ))}
+      {/* 중첩 객체/배열 - 접힘 가능 */}
+      {complexEntries.map(([key, value]) => (
+        <CollapsibleSection key={key} label={getLabel(key)} data={value} editing={editing} form={form} onChange={onChange} prefix={key} />
+      ))}
     </div>
   )
 }
@@ -1253,24 +1251,20 @@ function CollapsibleSection({
         className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors"
       >
         <span className="text-sm font-medium text-gray-700">
-          {open ? "▼" : "▶"} {label} ({count}건)
+          {open ? "▼" : "▶"} {label}
+          {count > 0 && <span className="ml-1 text-gray-500">({count}건)</span>}
         </span>
       </button>
       {open && (
         <div className="p-3">
           {Array.isArray(data) ? (
             <div className="space-y-2">
-              {data
-                .map((item, i) => ({ item, i }))
-                .filter(({ item }) => editing || hasValue(item))
-                .map(({ item, i }) => (
+              {data.map((item, i) => (
                 <div key={i} className="border border-gray-100 rounded-lg overflow-hidden">
                   {typeof item === "object" && item !== null ? (
                     <table className="w-full">
                       <tbody>
-                        {Object.entries(item as Record<string, unknown>)
-                          .filter(([, v]) => editing || hasValue(v))
-                          .map(([k, v]) => (
+                        {Object.entries(item as Record<string, unknown>).map(([k, v]) => (
                           <tr key={k} className="border-b border-gray-50 hover:bg-gray-50">
                             <td className="px-3 py-1.5 text-xs text-gray-500 font-medium w-[120px] align-top">{getLabel(k)}</td>
                             <td className="px-3 py-1.5 text-xs text-gray-900">
@@ -1300,9 +1294,7 @@ function CollapsibleSection({
           ) : typeof data === "object" && data !== null ? (
             <table className="w-full">
               <tbody>
-                {Object.entries(data as Record<string, unknown>)
-                  .filter(([, v]) => editing || hasValue(v))
-                  .map(([k, v]) => (
+                {Object.entries(data as Record<string, unknown>).map(([k, v]) => (
                   <tr key={k} className="border-b border-gray-50 hover:bg-gray-50">
                     <td className="px-3 py-1.5 text-sm text-gray-500 font-medium w-[140px] align-top">{getLabel(k)}</td>
                     <td className="px-3 py-1.5 text-sm text-gray-900">
