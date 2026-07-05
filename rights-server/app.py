@@ -3,7 +3,7 @@
 from __future__ import annotations
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -75,7 +75,7 @@ def health():
     }
 
 
-def _build_response(req: PredictRequest, result: Dict[str, Any], eng) -> Dict[str, Any]:
+def _build_response(req: PredictRequest, result: Dict[str, Any]) -> Dict[str, Any]:
     summary = result.get("summary", {}) or {}
     rights_results = []
     for r in result.get("results", []):
@@ -125,4 +125,4 @@ def predict(req: PredictRequest):
         max_length=int(opts.max_length or DEFAULT_MAX_LENGTH),
         max_evidence=int(opts.max_evidence or DEFAULT_MAX_EVIDENCE),
     )
-    return _build_response(req, result, eng)
+    return _build_response(req, result)

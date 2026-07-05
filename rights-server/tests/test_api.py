@@ -12,12 +12,22 @@ class FakeEngine:
     top_k = 5
     def predict(self, text, max_length, max_evidence):
         return {
-            "summary": {"safe": 1, "review": 0, "none": 0, "evidence": 1},
+            "summary": {"safe": 1, "review": 1, "none": 1, "evidence": 2},
             "results": [{
                 "authority": "RIGHT_REPRODUCTION", "authority_ko": "복제권",
                 "group": "저작재산권", "status": "ALLOW", "display_result": "허용",
                 "confidence": 0.98, "evidence_numbers": [1], "review_reason": "",
                 "safe_result": "ALLOW",
+            }, {
+                "authority": "RIGHT_UNKNOWN", "authority_ko": "미상권리",
+                "group": "기타", "status": "UNKNOWN", "display_result": "-",
+                "confidence": None, "evidence_numbers": [], "review_reason": "",
+                "safe_result": "none",
+            }, {
+                "authority": "RIGHT_DISTRIBUTION", "authority_ko": "배포권",
+                "group": "저작재산권", "status": "ALLOW", "display_result": "허용",
+                "confidence": 0.55, "evidence_numbers": [2], "review_reason": "",
+                "safe_result": "REVIEW_REQUIRED_LOW_CONFIDENCE",
             }],
             "evidence": [{"evidence_no": 1, "authority": "RIGHT_REPRODUCTION",
                           "authority_ko": "복제권", "status": "ALLOW", "text": "☑ 복제권",
@@ -55,3 +65,29 @@ def test_predict_empty_text_400():
     c = TestClient(app_module.app)
     r = c.post("/api/v1/rights/predict", json={"text": "  "})
     assert r.status_code == 400
+
+def test_predict_unknown_result_normalized():
+    c = TestClient(app_module.app)
+    r = c.post("/api/v1/rights/predict", json={"text": "☑ 복제권"})
+    assert r.status_code == 200
+    body = r.json()
+    unknown = body["rights_results"][1]
+    assert unknown["status"] == "UNKNOWN"
+    assert unknown["display_result"] == "-"
+    assert unknown["confidence"] is None
+    assert unknown["evidence_numbers"] == []
+
+def test_predict_review_required_derivation():
+    c = TestClient(app_module.app)
+    r = c.post("/api/v1/rights/predict", json={"text": "☑ 복제권"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["rights_results"][0]["review_required"] is False
+    assert body["rights_results"][2]["review_required"] is True
+
+def test_predict_evidence_count_mapping():
+    c = TestClient(app_module.app)
+    r = c.post("/api/v1/rights/predict", json={"text": "☑ 복제권"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["summary"]["evidence_count"] == 2
