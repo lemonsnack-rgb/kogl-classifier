@@ -66,14 +66,21 @@ export async function POST(request: Request) {
     }
 
     // 3) 권리추정
-    const rights = await predictRights(ocrText, fileName)
-    await supabase.from("rights_checks").update({
-      summary: rights.summary,
-      rights_results: rights.rights_results,
-      evidence: rights.evidence,
-      model_info: rights.model,
-      status: "completed",
-    }).eq("id", rightsCheckId)
+    try {
+      const rights = await predictRights(ocrText, fileName)
+      await supabase.from("rights_checks").update({
+        summary: rights.summary,
+        rights_results: rights.rights_results,
+        evidence: rights.evidence,
+        model_info: rights.model,
+        status: "completed",
+      }).eq("id", rightsCheckId)
+    } catch (error) {
+      await supabase.from("rights_checks").update({ status: "failed" }).eq("id", rightsCheckId)
+      return NextResponse.json({
+        error: error instanceof Error ? error.message : "권리추정 처리 중 오류",
+      }, { status: 500 })
+    }
 
     return NextResponse.json({ success: true, rightsCheckId, status: "completed" })
   } catch (error) {
