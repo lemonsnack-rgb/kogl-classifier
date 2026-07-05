@@ -53,3 +53,10 @@ export type {
   HMCClassifyResponse,
   HMCEvidenceClause,
 } from "./types"
+
+// 권리추정 API (신규)
+export { predictRights, checkRightsHealth, getMockRightsResponse } from "./rights"
+export type {
+  RightsPredictRequest, RightsPredictResponse, RightsResultItem,
+  RightsEvidenceItem, RightsSummary, RightsModelInfo, RightsStatus, RightsCheckStatus,
+} from "./rights-types"

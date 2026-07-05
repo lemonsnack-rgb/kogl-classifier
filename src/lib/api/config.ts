@@ -9,6 +9,9 @@ export const API_CONFIG = {
   // HMC 공공누리 유형 분류 API
   HMC_API_BASE_URL: process.env.NEXT_PUBLIC_HMC_API_URL || "",
 
+  // 권리추정 API (신규, 미설정 시 Mock)
+  RIGHTS_API_BASE_URL: process.env.NEXT_PUBLIC_RIGHTS_API_URL || "",
+
   // Mock 모드 여부 (API URL이 없으면 자동으로 Mock)
   get useMock(): boolean {
     return !this.SSU_API_BASE_URL && !this.HMC_API_BASE_URL
@@ -20,6 +23,10 @@ export const API_CONFIG = {
 
   get useMockHMC(): boolean {
     return !this.HMC_API_BASE_URL
+  },
+
+  get useMockRights(): boolean {
+    return !this.RIGHTS_API_BASE_URL
   },
 }
 
