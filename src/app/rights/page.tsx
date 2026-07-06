@@ -51,7 +51,8 @@ export default function RightsPage() {
       if (!user) { setError("로그인이 필요합니다."); setBusy(false); return }
 
       // 1) 파일 업로드 (기존 contracts 버킷 재사용)
-      const path = `${user.id}/${Date.now()}_${file.name}`
+      const ext = file.name.split(".").pop() || "pdf"
+      const path = `${user.id}/${crypto.randomUUID()}.${ext}`
       const { error: upErr } = await supabase.storage.from("contracts").upload(path, file)
       if (upErr) throw new Error(`업로드 실패: ${upErr.message}`)
       const { data: pub } = supabase.storage.from("contracts").getPublicUrl(path)
