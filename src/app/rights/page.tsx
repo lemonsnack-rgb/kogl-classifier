@@ -34,6 +34,7 @@ export default function RightsPage() {
   const [rows, setRows] = useState<RightsCheckRow[]>([])
   const [inputMode, setInputMode] = useState<"file" | "text">("file")
   const [file, setFile] = useState<File | null>(null)
+  const [inspectionName, setInspectionName] = useState("")
   const [text, setText] = useState("")
   const [docType, setDocType] = useState<string>("계약서")
   const [busy, setBusy] = useState(false)
@@ -88,6 +89,7 @@ export default function RightsPage() {
 
   async function handleRunFile() {
     setError("")
+    if (!inspectionName.trim()) { setError("검사 명칭을 입력하세요."); return }
     if (!file) { setError("PDF 파일을 선택하세요."); return }
     if (!isSupabaseConfigured()) { setError("Supabase 설정이 필요합니다."); return }
     setBusy(true)
@@ -103,10 +105,11 @@ export default function RightsPage() {
       if (upErr) throw new Error(`업로드 실패: ${upErr.message}`)
       const { data: pub } = supabase.storage.from("contracts").getPublicUrl(path)
 
-      // 2) rights_checks 행 생성 + 3) 파이프라인 실행
+      // 2) rights_checks 행 생성 + 3) 파이프라인 실행 (제목은 검사 명칭)
+      const title = inspectionName.trim()
       await runProcess(
-        { file_name: file.name, file_url: pub.publicUrl },
-        { fileUrl: pub.publicUrl, fileName: file.name, documentType: docType },
+        { file_name: title, file_url: pub.publicUrl },
+        { fileUrl: pub.publicUrl, fileName: title, documentType: docType },
       )
     } catch (e) {
       setError(e instanceof Error ? e.message : "오류")
@@ -121,7 +124,7 @@ export default function RightsPage() {
     if (!isSupabaseConfigured()) { setError("Supabase 설정이 필요합니다."); return }
     setBusy(true)
     try {
-      const label = text.trim().slice(0, 40) || "텍스트 입력"
+      const label = `텍스트 입력 · ${docType}`
       await runProcess(
         { file_name: label, file_url: null },
         { text, fileName: label, documentType: docType },
@@ -167,11 +170,20 @@ export default function RightsPage() {
               </select>
             </div>
             {inputMode === "file" ? (
-              <div>
-                <label className="block text-sm text-gray-500 mb-1">PDF 파일</label>
-                <input type="file" accept=".pdf"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)} className="text-sm" />
-              </div>
+              <>
+                <div>
+                  <label className="block text-sm text-gray-500 mb-1">검사 명칭</label>
+                  <input type="text" value={inspectionName}
+                    onChange={(e) => setInspectionName(e.target.value)}
+                    placeholder="예: 2026년 콘텐츠 저작권 양도계약 검토"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-500 mb-1">PDF 파일</label>
+                  <input type="file" accept=".pdf"
+                    onChange={(e) => setFile(e.target.files?.[0] || null)} className="text-sm" />
+                </div>
+              </>
             ) : (
               <div>
                 <label className="block text-sm text-gray-500 mb-1">계약서 본문 텍스트</label>
