@@ -67,11 +67,20 @@ def _startup():
 @app.get("/api/v1/health")
 def health():
     eng = RIGHT_ENGINE
+    model_info = None
+    if eng is not None:
+        model_info = {
+            "model_kind": eng.model_kind,
+            "base_model": eng.base_model,
+            "checkpoint": Path(eng.checkpoint_path).name if getattr(eng, "checkpoint_path", None) else None,
+            "evidence_threshold": eng.evidence_threshold,
+            "top_k": eng.top_k,
+        }
     return {
         "ok": eng is not None,
         "right_loaded": eng is not None,
         "right_error": RIGHT_ENGINE_ERROR,
-        "model": eng.info if eng is not None else None,
+        "model": model_info,
     }
 
 

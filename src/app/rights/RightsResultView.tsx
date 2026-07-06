@@ -13,7 +13,7 @@ function statusChip(item: RightsResultItem) {
     PROHIBIT: { label: item.display_result, cls: "bg-red-100 text-red-700" },
     UNKNOWN: { label: "-", cls: "bg-gray-100 text-gray-400" },
   }
-  return map[item.status] || { label: item.display_result || "-", cls: "bg-green-100 text-green-700" }
+  return map[item.status] || { label: item.display_result || "-", cls: "bg-slate-100 text-slate-700" }
 }
 
 export default function RightsResultView({ data }: { data: RightsPredictResponse }) {

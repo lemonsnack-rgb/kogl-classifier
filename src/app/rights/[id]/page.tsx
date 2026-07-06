@@ -17,7 +17,6 @@ interface RightsCheckDetail {
   summary: RightsPredictResponse["summary"] | null
   rights_results: RightsPredictResponse["rights_results"] | null
   evidence: RightsPredictResponse["evidence"] | null
-  model: RightsPredictResponse["model"] | null
   model_info: RightsPredictResponse["model"] | null
   created_at: string
 }
@@ -47,7 +46,7 @@ export default function RightsDetailPage() {
   const result: RightsPredictResponse | null =
     row.rights_results ? {
       ok: true, document_id: row.id, file_name: row.file_name,
-      model: row.model_info || row.model || {
+      model: row.model_info || {
         model_kind: null, base_model: null, checkpoint: null, evidence_threshold: null, top_k: null },
       summary: row.summary || { safe: 0, review: 0, none: 0, evidence_count: 0 },
       rights_results: row.rights_results,

@@ -59,10 +59,13 @@ export async function POST(request: Request) {
         contract_metadata: ssu.consolidated_metadata || ssu.metadata || null,
         status: "predicting",
       }).eq("id", rightsCheckId)
-    } else {
-      // SSU 미설정 시 Mock 텍스트로 진행 (개발용)
+    } else if (process.env.NODE_ENV !== "production") {
+      // SSU 미설정 시 Mock 텍스트로 진행 (개발/테스트 전용)
       ocrText = "콘텐츠 저작재산권 양도계약서\n☑ 복제권, □ 전시권\n유상 사업에 이용할 수 있다."
       await supabase.from("rights_checks").update({ ocr_text: ocrText, status: "predicting" }).eq("id", rightsCheckId)
+    } else {
+      await supabase.from("rights_checks").update({ status: "failed" }).eq("id", rightsCheckId)
+      return NextResponse.json({ error: "OCR 서비스(SSU)가 설정되지 않았습니다." }, { status: 500 })
     }
 
     // 3) 권리추정
