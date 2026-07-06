@@ -1,0 +1,11 @@
+model/*.pt
+__pycache__/
+**/__pycache__/
+*.pyc
+.venv/
+tests/
+.cache/
+.pytest_cache/
+.git/
+.gitignore
+*.md

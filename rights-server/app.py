@@ -14,6 +14,8 @@ from rights_engine import (
 from schema import AUTHORITY_GROUP_KO, STATUS_KO
 
 RIGHTS_MODEL_PATH = os.environ.get("RIGHTS_MODEL_PATH", "./model/권리추정_260610.pt")
+RIGHTS_MODEL_REPO = os.environ.get("RIGHTS_MODEL_REPO")
+RIGHTS_MODEL_FILE = os.environ.get("RIGHTS_MODEL_FILE") or Path(RIGHTS_MODEL_PATH).name
 
 RIGHT_ENGINE: Optional[Any] = None
 RIGHT_ENGINE_ERROR: Optional[str] = None
@@ -24,6 +26,22 @@ def load_engine(path: Path):
     RIGHT_ENGINE = FinalSchemaRightsInferenceEngine(path)
     RIGHT_ENGINE_ERROR = None
     return RIGHT_ENGINE
+
+
+def _resolve_model_path() -> Path:
+    """RIGHTS_MODEL_REPO가 설정되어 있으면 HuggingFace Hub에서 체크포인트를
+    내려받아 그 경로를 반환하고, 아니면 기존 로컬 RIGHTS_MODEL_PATH를 사용한다.
+    """
+    if RIGHTS_MODEL_REPO:
+        from huggingface_hub import hf_hub_download  # lazy import: 테스트 시 네트워크 불필요
+
+        downloaded = hf_hub_download(
+            repo_id=RIGHTS_MODEL_REPO,
+            filename=RIGHTS_MODEL_FILE,
+            token=os.environ.get("HF_TOKEN"),
+        )
+        return Path(downloaded)
+    return Path(RIGHTS_MODEL_PATH)
 
 
 def get_engine():
@@ -54,7 +72,11 @@ app = FastAPI(title="KOGL 권리추정 API", version="rights-v1")
 @app.on_event("startup")
 def _startup():
     global RIGHT_ENGINE_ERROR
-    p = Path(RIGHTS_MODEL_PATH)
+    try:
+        p = _resolve_model_path()
+    except Exception as e:  # noqa: BLE001
+        RIGHT_ENGINE_ERROR = f"모델 다운로드 실패: {e}"
+        return
     if p.exists():
         try:
             load_engine(p)
