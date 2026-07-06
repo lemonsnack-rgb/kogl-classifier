@@ -162,3 +162,24 @@ Space로 전달됩니다.
   `README.md` 상단 YAML front-matter에 정의되어 있습니다.
 - 무료 Space CPU 인스턴스는 리소스가 제한적이므로, 응답이 느리면
   유료 하드웨어(Space Settings → Hardware)로 업그레이드를 고려하세요.
+
+---
+
+## ✅ 배포 완료 기록 (2026-07-06)
+
+실제 배포되어 온라인 동작 확인됨:
+
+- **권리추정 API (public Space)**: https://ilwang-kogl-rights-api.hf.space
+  - Health: `GET https://ilwang-kogl-rights-api.hf.space/api/v1/health`
+  - Predict: `POST https://ilwang-kogl-rights-api.hf.space/api/v1/rights/predict`
+  - Space 저장소: https://huggingface.co/spaces/ilwang/kogl-rights-api (Docker SDK, app_port 7860)
+- **모델 가중치 (private repo)**: https://huggingface.co/ilwang/kogl-rights-model (`권리추정_260610.pt`)
+- **Space Secrets 설정됨**: `HF_TOKEN`, `RIGHTS_MODEL_REPO=ilwang/kogl-rights-model`, `RIGHTS_MODEL_FILE=권리추정_260610.pt`
+- 확인된 응답: `summary {safe:6, review:1, none:9, evidence_count:5}`, rights_results 16 / evidence 5
+
+### 프론트엔드 연결
+`.env.local` 에 아래를 설정하면 웹앱이 이 온라인 권리 서버를 사용합니다:
+```
+NEXT_PUBLIC_RIGHTS_API_URL=https://ilwang-kogl-rights-api.hf.space
+```
+(미설정 시 Mock으로 동작 — 기존 배포 무영향)
