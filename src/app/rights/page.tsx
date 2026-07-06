@@ -22,7 +22,9 @@ const STATUS_LABEL: Record<RightsCheckStatus, string> = {
 
 export default function RightsPage() {
   const [rows, setRows] = useState<RightsCheckRow[]>([])
+  const [inputMode, setInputMode] = useState<"file" | "text">("file")
   const [file, setFile] = useState<File | null>(null)
+  const [text, setText] = useState("")
   const [docType, setDocType] = useState<string>("계약서")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
@@ -40,7 +42,31 @@ export default function RightsPage() {
 
   useEffect(() => { loadRows() }, [])
 
-  async function handleRun() {
+  // rights_checks 행 생성 후 파이프라인 실행 + 이동 (파일/텍스트 공통)
+  async function runProcess(insertPayload: Record<string, unknown>, processPayload: Record<string, unknown>) {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setError("로그인이 필요합니다."); setBusy(false); return }
+
+    const { data: inserted, error: insErr } = await supabase
+      .from("rights_checks")
+      .insert({ user_id: user.id, status: "uploaded", ...insertPayload })
+      .select("id").single()
+    if (insErr || !inserted) throw new Error(`기록 생성 실패: ${insErr?.message}`)
+
+    const res = await fetch("/api/rights/process", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rightsCheckId: inserted.id, ...processPayload }),
+    })
+    if (!res.ok) {
+      const e = await res.json().catch(() => null)
+      throw new Error(e?.error || `처리 실패: ${res.status}`)
+    }
+    window.location.href = `/rights/${inserted.id}`
+  }
+
+  async function handleRunFile() {
     setError("")
     if (!file) { setError("PDF 파일을 선택하세요."); return }
     if (!isSupabaseConfigured()) { setError("Supabase 설정이 필요합니다."); return }
@@ -57,27 +83,29 @@ export default function RightsPage() {
       if (upErr) throw new Error(`업로드 실패: ${upErr.message}`)
       const { data: pub } = supabase.storage.from("contracts").getPublicUrl(path)
 
-      // 2) rights_checks 행 생성
-      const { data: inserted, error: insErr } = await supabase
-        .from("rights_checks")
-        .insert({ user_id: user.id, file_name: file.name, file_url: pub.publicUrl, status: "uploaded" })
-        .select("id").single()
-      if (insErr || !inserted) throw new Error(`기록 생성 실패: ${insErr?.message}`)
+      // 2) rights_checks 행 생성 + 3) 파이프라인 실행
+      await runProcess(
+        { file_name: file.name, file_url: pub.publicUrl },
+        { fileUrl: pub.publicUrl, fileName: file.name, documentType: docType },
+      )
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "오류")
+    } finally {
+      setBusy(false)
+    }
+  }
 
-      // 3) 파이프라인 실행
-      const res = await fetch("/api/rights/process", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rightsCheckId: inserted.id, fileUrl: pub.publicUrl,
-          fileName: file.name, documentType: docType,
-        }),
-      })
-      if (!res.ok) {
-        const e = await res.json().catch(() => null)
-        throw new Error(e?.error || `처리 실패: ${res.status}`)
-      }
-      window.location.href = `/rights/${inserted.id}`
+  async function handleRunText() {
+    setError("")
+    if (!text.trim()) { setError("계약서 본문 텍스트를 입력하세요."); return }
+    if (!isSupabaseConfigured()) { setError("Supabase 설정이 필요합니다."); return }
+    setBusy(true)
+    try {
+      const label = text.trim().slice(0, 40) || "텍스트 입력"
+      await runProcess(
+        { file_name: label, file_url: null },
+        { text, fileName: label, documentType: docType },
+      )
     } catch (e) {
       setError(e instanceof Error ? e.message : "오류")
     } finally {
@@ -94,6 +122,20 @@ export default function RightsPage() {
         </div>
 
         <div className="bg-white border border-gray-200 rounded-lg p-6 mb-8">
+          <div className="flex gap-1 mb-4 border-b border-gray-200">
+            <button type="button" onClick={() => setInputMode("file")}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
+                inputMode === "file" ? "border-primary-600 text-primary-600" : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}>
+              파일 업로드
+            </button>
+            <button type="button" onClick={() => setInputMode("text")}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
+                inputMode === "text" ? "border-primary-600 text-primary-600" : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}>
+              텍스트 입력
+            </button>
+          </div>
           <div className="space-y-4">
             <div>
               <label className="block text-sm text-gray-500 mb-1">문서 유형</label>
@@ -102,13 +144,23 @@ export default function RightsPage() {
                 {DOCUMENT_TYPES.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
             </div>
-            <div>
-              <label className="block text-sm text-gray-500 mb-1">PDF 파일</label>
-              <input type="file" accept=".pdf"
-                onChange={(e) => setFile(e.target.files?.[0] || null)} className="text-sm" />
-            </div>
+            {inputMode === "file" ? (
+              <div>
+                <label className="block text-sm text-gray-500 mb-1">PDF 파일</label>
+                <input type="file" accept=".pdf"
+                  onChange={(e) => setFile(e.target.files?.[0] || null)} className="text-sm" />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm text-gray-500 mb-1">계약서 본문 텍스트</label>
+                <textarea value={text} onChange={(e) => setText(e.target.value)}
+                  placeholder="계약서 본문 텍스트를 붙여넣으세요."
+                  rows={10}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" />
+              </div>
+            )}
             {error && <p className="text-sm text-red-600">{error}</p>}
-            <button onClick={handleRun} disabled={busy}
+            <button onClick={inputMode === "file" ? handleRunFile : handleRunText} disabled={busy}
               className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50">
               <Upload className="w-4 h-4" />
               {busy ? "처리중..." : "권리추정 실행"}

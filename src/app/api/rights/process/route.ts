@@ -9,13 +9,47 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { rightsCheckId, fileUrl, fileName, documentType } = body
+    const { rightsCheckId, text, fileUrl, fileName, documentType } = body
     if (!rightsCheckId) {
       return NextResponse.json({ error: "rightsCheckId 필요" }, { status: 400 })
     }
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     })
+
+    // 3) 권리추정 실행 + 결과 저장 (텍스트 직접입력/파일 업로드 공통 로직)
+    const runPredictAndSave = async (ocrText: string) => {
+      try {
+        const rights = await predictRights(ocrText, fileName)
+        await supabase.from("rights_checks").update({
+          summary: rights.summary,
+          rights_results: rights.rights_results,
+          evidence: rights.evidence,
+          model_info: rights.model,
+          status: "completed",
+        }).eq("id", rightsCheckId)
+        return null
+      } catch (error) {
+        await supabase.from("rights_checks").update({ status: "failed" }).eq("id", rightsCheckId)
+        return NextResponse.json({
+          error: error instanceof Error ? error.message : "권리추정 처리 중 오류",
+        }, { status: 500 })
+      }
+    }
+
+    // 텍스트 직접 입력: 파일 다운로드/SSU OCR을 건너뛰고 바로 권리추정
+    if (typeof text === "string" && text.trim().length > 0) {
+      const ocrText = text.slice(0, 20000)
+      await supabase.from("rights_checks").update({
+        ocr_text: ocrText,
+        status: "predicting",
+      }).eq("id", rightsCheckId)
+
+      const failRes = await runPredictAndSave(ocrText)
+      if (failRes) return failRes
+
+      return NextResponse.json({ success: true, rightsCheckId, status: "completed" })
+    }
 
     await supabase.from("rights_checks").update({ status: "ocr_processing" }).eq("id", rightsCheckId)
 
@@ -69,21 +103,8 @@ export async function POST(request: Request) {
     }
 
     // 3) 권리추정
-    try {
-      const rights = await predictRights(ocrText, fileName)
-      await supabase.from("rights_checks").update({
-        summary: rights.summary,
-        rights_results: rights.rights_results,
-        evidence: rights.evidence,
-        model_info: rights.model,
-        status: "completed",
-      }).eq("id", rightsCheckId)
-    } catch (error) {
-      await supabase.from("rights_checks").update({ status: "failed" }).eq("id", rightsCheckId)
-      return NextResponse.json({
-        error: error instanceof Error ? error.message : "권리추정 처리 중 오류",
-      }, { status: 500 })
-    }
+    const failRes = await runPredictAndSave(ocrText)
+    if (failRes) return failRes
 
     return NextResponse.json({ success: true, rightsCheckId, status: "completed" })
   } catch (error) {
