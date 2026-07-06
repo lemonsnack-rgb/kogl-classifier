@@ -1,7 +1,11 @@
 fastapi>=0.110
 uvicorn[standard]>=0.29
 pydantic>=2.5
-torch>=2.1
+# torch is intentionally NOT listed here: the Dockerfile installs a CPU-only
+# wheel from https://download.pytorch.org/whl/cpu in its own layer before
+# this file is installed, to avoid pulling a multi-GB CUDA wheel from PyPI.
+# For local dev, install torch yourself first, e.g.:
+#   pip install --index-url https://download.pytorch.org/whl/cpu torch
 transformers>=4.38
 huggingface_hub>=0.23
 pymupdf>=1.23
