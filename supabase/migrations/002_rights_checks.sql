@@ -1,6 +1,16 @@
 -- =============================================
 -- 권리추정 기록 테이블 (독립 기능, 기존 스키마 무변경)
 -- =============================================
+
+-- updated_at 자동 갱신 함수 (001에 있으나, 없는 환경에서도 안전하도록 idempotent 재정의)
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE TABLE rights_checks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
