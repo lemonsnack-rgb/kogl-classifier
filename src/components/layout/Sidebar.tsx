@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { FileSearch, Settings, User, LogOut, ExternalLink, Activity } from "lucide-react"
+import { FileSearch, Settings, User, LogOut, ExternalLink, Activity, ScrollText } from "lucide-react"
 import { isSupabaseConfigured, createClient } from "@/lib/supabase/client"
 import type { UserRole } from "@/types"
 
 const topMenuItems = [
   { href: "/works", label: "검사하기", icon: FileSearch },
+  { href: "/rights", label: "권리추정", icon: ScrollText },
 ]
 
 const externalLinks = [
