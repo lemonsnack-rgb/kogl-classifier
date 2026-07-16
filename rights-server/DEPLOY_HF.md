@@ -183,3 +183,15 @@ Space로 전달됩니다.
 NEXT_PUBLIC_RIGHTS_API_URL=https://ilwang-kogl-rights-api.hf.space
 ```
 (미설정 시 Mock으로 동작 — 기존 배포 무영향)
+
+---
+
+## 유형추정 모델 통합 (2026-07-16)
+
+권리추정 서버가 이제 **유형추정 모델(Kogl_Type_best_260610.pt / kogl_type_axis_grounded_v2)** 도 함께 로드해 `/api/v1/rights/predict` 응답에 `type`(유형1~4, 축 상태, 근거 offset)을 포함한다.
+
+- 모델 업로드: private repo `ilwang/kogl-rights-model` 에 `Kogl_Type_best_260610.pt` 추가.
+- Space Secrets 추가: `TYPE_MODEL_REPO=ilwang/kogl-rights-model`, `TYPE_MODEL_FILE=Kogl_Type_best_260610.pt`.
+- 로컬 실행 시: `TYPE_MODEL_PATH=./model/Kogl_Type_best_260610.pt` (기본값).
+- 주의: 전달 샘플의 `TypeInferenceEngine`(cls_head+token_head)와 실제 체크포인트 구조가 달라
+  `type_engine.py`의 `TypeAxisGroundedEngine`(evidence_head+axis_heads+type_head)로 재구성함.
