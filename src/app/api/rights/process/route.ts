@@ -25,7 +25,8 @@ export async function POST(request: Request) {
           summary: rights.summary,
           rights_results: rights.rights_results,
           evidence: rights.evidence,
-          model_info: rights.model,
+          // 유형추정 결과는 model_info.type 에 함께 저장 (스키마 변경 없이)
+          model_info: { ...rights.model, type: rights.type ?? null },
           status: "completed",
         }).eq("id", rightsCheckId)
         return null

@@ -60,10 +60,43 @@ export interface RightsPredictRequest {
   }
 }
 
+// ── 유형추정(type) ──
+export interface TypeEvidenceItem {
+  evidence_no?: number
+  axis: string
+  axis_ko: string
+  status: RightsStatus
+  tag: string
+  source: "type"
+  text: string
+  start_char: number
+  end_char: number
+  confidence: number
+}
+
+export interface TypeAxis {
+  axis: string
+  axis_ko: string
+  status: RightsStatus
+  status_ko: string
+  confidence: number
+  evidence: TypeEvidenceItem[]
+}
+
+export interface TypeResult {
+  predicted_type: string // "유형1" ~ "유형4"
+  confidence: number
+  base_model?: string | null
+  axes: TypeAxis[]
+  evidence: TypeEvidenceItem[]
+}
+
 export interface RightsPredictResponse {
   ok: boolean
   document_id: string | null
   file_name: string | null
+  text?: string
+  type?: TypeResult | null
   model: RightsModelInfo
   summary: RightsSummary
   rights_results: RightsResultItem[]

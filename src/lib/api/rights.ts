@@ -51,6 +51,19 @@ export function getMockRightsResponse(
     ok: true,
     document_id: null,
     file_name: fileName || "mock_contract.txt",
+    text,
+    type: {
+      predicted_type: "유형1",
+      confidence: 0.98,
+      base_model: "klue/roberta-base",
+      axes: [
+        { axis: "COMMERCIAL_USE", axis_ko: "상업적 이용", status: "ALLOW", status_ko: "허용", confidence: 0.98,
+          evidence: [{ axis: "COMMERCIAL_USE", axis_ko: "상업적 이용", status: "ALLOW", tag: "COMMERCIAL_USE:ALLOW", source: "type", text: "(Mock) 유상 사업에 이용할 수 있다.", start_char: 24, end_char: 44, confidence: 0.97 }] },
+        { axis: "DERIVATIVE_MODIFICATION", axis_ko: "변경·가공/2차적저작물작성", status: "ALLOW", status_ko: "허용", confidence: 0.97,
+          evidence: [{ axis: "DERIVATIVE_MODIFICATION", axis_ko: "변경·가공/2차적저작물작성", status: "ALLOW", tag: "DERIVATIVE_MODIFICATION:ALLOW", source: "type", text: "(Mock) ☑ 2차적저작물작성권", start_char: 0, end_char: 12, confidence: 0.96 }] },
+      ],
+      evidence: [],
+    },
     model: {
       model_kind: "authority_finalschema_multilabel_grounded_v4",
       base_model: "klue/roberta-base",

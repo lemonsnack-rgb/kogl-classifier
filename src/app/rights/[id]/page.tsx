@@ -13,11 +13,13 @@ interface RightsCheckDetail {
   id: string
   file_name: string | null
   status: RightsCheckStatus
+  ocr_text: string | null
   contract_metadata: Record<string, unknown> | null
   summary: RightsPredictResponse["summary"] | null
   rights_results: RightsPredictResponse["rights_results"] | null
   evidence: RightsPredictResponse["evidence"] | null
-  model_info: RightsPredictResponse["model"] | null
+  // 유형추정 결과(type)는 model_info 안에 함께 저장됨
+  model_info: (RightsPredictResponse["model"] & { type?: RightsPredictResponse["type"] }) | null
   created_at: string
 }
 
@@ -46,6 +48,7 @@ export default function RightsDetailPage() {
   const result: RightsPredictResponse | null =
     row.rights_results ? {
       ok: true, document_id: row.id, file_name: row.file_name,
+      type: row.model_info?.type ?? null,
       model: row.model_info || {
         model_kind: null, base_model: null, checkpoint: null, evidence_threshold: null, top_k: null },
       summary: row.summary || { safe: 0, review: 0, none: 0, evidence_count: 0 },
@@ -66,7 +69,7 @@ export default function RightsDetailPage() {
             상태: {row.status} — 처리가 완료되지 않았습니다.
           </div>
         ) : result ? (
-          <RightsResultView data={result} />
+          <RightsResultView data={result} ocrText={row.ocr_text} />
         ) : (
           <p className="text-sm text-gray-400">권리 결과가 없습니다.</p>
         )}
