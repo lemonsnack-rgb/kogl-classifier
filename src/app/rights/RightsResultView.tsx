@@ -59,7 +59,7 @@ export default function RightsResultView({
         <CombinedMetadata data={metadata} />
       ) : hasAnyValue(metadata) ? (
         <div className="bg-white border border-gray-200 rounded-lg p-5">
-          <h3 className="text-sm font-bold text-gray-700 mb-3">저작물 메타데이터</h3>
+          <h3 className="text-[15px] font-bold text-gray-800 tracking-tight mb-3">저작물 메타데이터</h3>
           <MetadataTable data={metadata} />
         </div>
       ) : null)}
@@ -67,7 +67,7 @@ export default function RightsResultView({
       {/* 공공누리 유형 (HMC 유형분류 API) */}
       {hmcType && (
         <div className="bg-white border border-gray-200 rounded-lg p-5">
-          <h3 className="text-sm font-bold text-gray-700 mb-3">공공누리 유형 (유형분류 모델)</h3>
+          <h3 className="text-[15px] font-bold text-gray-800 tracking-tight mb-3">공공누리 유형 (유형분류 모델)</h3>
           <div className="flex items-center gap-3 mb-3 flex-wrap">
             <span className="inline-flex items-center px-3 py-1 rounded-md text-sm font-bold text-white"
               style={{ backgroundColor: hmcMeta?.color || "#00845A" }}>
@@ -99,7 +99,7 @@ export default function RightsResultView({
       {/* 유형 추정 (축 기반 모델 — 사용 시) */}
       {showType && type && (
         <div className="bg-white border border-gray-200 rounded-lg p-5">
-          <h3 className="text-sm font-bold text-gray-700 mb-3">공공누리 유형 추정</h3>
+          <h3 className="text-[15px] font-bold text-gray-800 tracking-tight mb-3">공공누리 유형 추정</h3>
           <div className="flex items-center gap-3 mb-3 flex-wrap">
             <span className="inline-flex items-center px-3 py-1 rounded-md text-sm font-bold text-white"
               style={{ backgroundColor: (typeMeta?.color) || "#00845A" }}>
@@ -133,9 +133,9 @@ export default function RightsResultView({
 
       {/* 원본 문서 + 근거 하이라이트 */}
       {showHighlight && ocrText && ocrText.trim() && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <div className="bg-white border border-gray-200 rounded-lg p-5">
           <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-            <h3 className="text-sm font-bold text-gray-700">원본 문서 (근거 하이라이트)</h3>
+            <h3 className="text-[15px] font-bold text-gray-800 tracking-tight">원본 문서 (근거 하이라이트)</h3>
             <div className="flex items-center gap-3 text-xs text-gray-500">
               <Legend color="#dbeafe" border="#2563eb" label="유형 근거" />
               <Legend color="#dcfce7" border="#059669" label="허용" />
@@ -150,7 +150,7 @@ export default function RightsResultView({
       {grouped.map(({ group, rows }) => (
         <div key={group} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200">
-            <span className="text-sm font-bold text-gray-700">{group}</span>
+            <span className="text-[15px] font-bold text-gray-800 tracking-tight">{group}</span>
           </div>
           <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[440px]">
@@ -190,8 +190,8 @@ export default function RightsResultView({
 
       {/* 권리 근거 목록 */}
       {data.evidence.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <h3 className="text-sm font-bold text-gray-700 mb-3">권리 근거 목록</h3>
+        <div className="bg-white border border-gray-200 rounded-lg p-5">
+          <h3 className="text-[15px] font-bold text-gray-800 tracking-tight mb-3">권리 근거 목록</h3>
           <ol className="space-y-2">
             {data.evidence.map((ev: RightsEvidenceItem) => (
               <li key={ev.evidence_no} className="flex gap-3 text-sm">
@@ -402,7 +402,7 @@ function CombinedMetadata({ data }: { data: Record<string, unknown> }) {
     <div className="space-y-4">
       {/* ① 계약서 추출 정보 */}
       <div className="bg-white border border-gray-200 rounded-lg p-5">
-        <h3 className="text-sm font-bold text-gray-700 mb-3">계약서 추출 정보</h3>
+        <h3 className="text-[15px] font-bold text-gray-800 tracking-tight mb-3">계약서 추출 정보</h3>
         {contract && hasAnyValue(contract)
           ? <MetadataTable data={contract} />
           : <p className="text-sm text-gray-400">추출된 계약서 메타데이터가 없습니다.</p>}
@@ -410,7 +410,7 @@ function CombinedMetadata({ data }: { data: Record<string, unknown> }) {
 
       {/* ② 저작물 메타데이터 (파일별 20항목) */}
       <div className="bg-white border border-gray-200 rounded-lg p-5">
-        <h3 className="text-sm font-bold text-gray-700 mb-3">저작물 메타데이터 ({works.length}건)</h3>
+        <h3 className="text-[15px] font-bold text-gray-800 tracking-tight mb-3">저작물 메타데이터 ({works.length}건)</h3>
         {works.length === 0 ? (
           <p className="text-sm text-gray-400">업로드된 저작물이 없습니다.</p>
         ) : (
