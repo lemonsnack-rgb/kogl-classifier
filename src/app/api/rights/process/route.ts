@@ -10,6 +10,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     const { rightsCheckId, text, fileUrl, fileName, documentType } = body
+    const mode = body.mode === "combined" ? "combined" : "rights"
     if (!rightsCheckId) {
       return NextResponse.json({ error: "rightsCheckId 필요" }, { status: 400 })
     }
@@ -25,8 +26,8 @@ export async function POST(request: Request) {
           summary: rights.summary,
           rights_results: rights.rights_results,
           evidence: rights.evidence,
-          // 유형추정 결과는 model_info.type 에 함께 저장 (스키마 변경 없이)
-          model_info: { ...rights.model, type: rights.type ?? null },
+          // 유형추정 결과(type)와 메뉴 구분(mode)을 model_info 에 함께 저장 (스키마 변경 없이)
+          model_info: { ...rights.model, type: rights.type ?? null, mode },
           status: "completed",
         }).eq("id", rightsCheckId)
         return null
