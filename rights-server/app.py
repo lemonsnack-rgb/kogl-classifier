@@ -96,6 +96,10 @@ def health():
     }
 
 
+# 명세서(sample_rights_response.json) evidence 항목 필드 — 이 필드만 노출한다.
+EVIDENCE_FIELDS = ("evidence_no", "authority", "authority_ko", "status", "text", "start_char", "end_char", "confidence")
+
+
 def _build_response(req: PredictRequest, result: Dict[str, Any]) -> Dict[str, Any]:
     summary = result.get("summary", {}) or {}
     rights_results = []
@@ -112,11 +116,12 @@ def _build_response(req: PredictRequest, result: Dict[str, Any]) -> Dict[str, An
             "evidence_numbers": [] if is_unknown else r.get("evidence_numbers", []),
             "review_required": bool(str(r.get("safe_result", "")).startswith("REVIEW")),
         })
+    # evidence는 명세서 필드로만 정규화(내부 필드 제거) → 타 개발사 연동 시 스펙 그대로 사용 가능
+    evidence = [{k: ev.get(k) for k in EVIDENCE_FIELDS} for ev in (result.get("evidence", []) or [])]
     return {
         "ok": True,
         "document_id": req.document_id,
         "file_name": req.file_name,
-        "text": req.text,
         "model": {
             "model_kind": result.get("model_kind"),
             "base_model": result.get("model_name"),
@@ -131,7 +136,7 @@ def _build_response(req: PredictRequest, result: Dict[str, Any]) -> Dict[str, An
             "evidence_count": summary.get("evidence", 0),
         },
         "rights_results": rights_results,
-        "evidence": result.get("evidence", []),
+        "evidence": evidence,
     }
 
 
