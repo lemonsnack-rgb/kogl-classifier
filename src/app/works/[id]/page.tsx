@@ -295,13 +295,18 @@ export default function WorkDetailPage() {
             className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-2"
           >
             <ArrowLeft className="w-4 h-4" />
-            목록으로
+            검사하기 목록
           </Link>
-          <h1 className="text-xl font-bold text-gray-900">
-            {contract.inspection_title ??
-              contract.contract_filename ??
-              "검사 결과"}
-          </h1>
+          <div className="flex items-center gap-2.5">
+            <span className="flex-shrink-0 w-9 h-9 rounded-lg bg-primary-50 flex items-center justify-center">
+              <FileText className="w-5 h-5 text-primary-600" />
+            </span>
+            <h1 className="text-xl font-bold text-gray-900 tracking-tight leading-tight">
+              {contract.inspection_title ??
+                contract.contract_filename ??
+                "검사 결과"}
+            </h1>
+          </div>
         </div>
 
         {/* ====== 하단: 좌우 2단 ====== */}
@@ -745,7 +750,7 @@ export default function WorkDetailPage() {
 function SectionDivider({ title }: { title: string }) {
   return (
     <div className="mb-4">
-      <span className="text-base font-bold text-gray-600 tracking-wide">
+      <span className="text-[15px] font-bold text-gray-800 tracking-tight">
         {title}
       </span>
     </div>
