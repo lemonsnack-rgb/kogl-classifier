@@ -917,7 +917,7 @@ function MetaSummary({ data }: { data: Record<string, unknown> }) {
     if (data.consent_date) summaryFields.push({ key: "consent_date", label: "동의 날짜" })
   } else if (data.contract_type) {
     summaryFields.push({ key: "contract_type", label: "유형" })
-    if (data.work_title) summaryFields.push({ key: "work_title", label: "저작물명" })
+    if (data.work_title) summaryFields.push({ key: "work_title", label: "계약 제목" })
     if (data.rights_holder) summaryFields.push({ key: "rights_holder", label: "권리자" })
     if (data.signature_date) summaryFields.push({ key: "signature_date", label: "서명일" })
   } else {
@@ -973,7 +973,7 @@ const FIELD_LABELS: Record<string, string> = {
   registration_no: "등록번호",
   rights_holder: "권리자",
   user: "이용기관",
-  work_title: "저작물명",
+  work_title: "계약 제목",
   work_category: "저작물 분류",
   granted_rights: "양도 권리",
   reproduction_right: "복제권",
@@ -991,7 +991,7 @@ const FIELD_LABELS: Record<string, string> = {
   effective_date: "시작일",
   expiration_date: "종료일",
   work_display: "저작물 표시",
-  work_names: "저작물명",
+  work_names: "계약 제목",
   institution: "기관",
   work_details: "상세정보",
   copyright_license: "저작재산권 이용허락",

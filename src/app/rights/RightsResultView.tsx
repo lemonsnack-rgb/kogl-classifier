@@ -287,7 +287,7 @@ function SummaryPill({ label, value, color }: { label: string; value: number; co
 
 /* ── 저작물 메타데이터 (SSU 추출) 렌더러 ── */
 const META_LABELS: Record<string, string> = {
-  work_title: "저작물명", work_names: "저작물명", title: "제목", keyword: "주제어", keywords: "주제어",
+  work_title: "계약 제목", work_names: "계약 제목", title: "제목", keyword: "주제어", keywords: "주제어",
   work_category: "저작물 분류", work_type: "유형", rights_holder: "권리자",
   copyright_holder: "저작권자", author: "저작자", creator: "제작자",
   agency_name: "기관명", institution: "기관", language: "언어", description: "설명",
