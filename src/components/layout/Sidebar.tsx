@@ -10,7 +10,7 @@ import type { UserRole } from "@/types"
 const topMenuItems = [
   { href: "/works", label: "검사하기", icon: FileSearch },
   { href: "/rights", label: "권리추정", icon: ScrollText },
-  { href: "/combined", label: "통합", icon: Layers },
+  { href: "/combined", label: "통합검사", icon: Layers },
 ]
 
 const externalLinks = [
