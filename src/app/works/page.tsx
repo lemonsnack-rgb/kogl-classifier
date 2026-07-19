@@ -4,11 +4,12 @@ import { useState, useMemo, useEffect, useCallback, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import AppLayout from "@/components/layout/AppLayout"
 import PageHeader from "@/components/ui/PageHeader"
+import ListSearch from "@/components/ui/ListSearch"
 import { NewRecordCard, RecordCard, StatusBadge } from "@/components/ui/RecordCard"
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client"
 import { KOGL_TYPES, STATUS_META } from "@/types"
 import type { Contract, KoglType } from "@/types"
-import { FileText, Search, Loader2 } from "lucide-react"
+import { FileText, Loader2 } from "lucide-react"
 
 function formatDateTime(dateStr: string): string {
   const d = new Date(dateStr)
@@ -151,10 +152,6 @@ function WorksPage() {
     setActiveQuery(searchQuery)
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleSearch()
-  }
-
   return (
     <AppLayout>
       <div>
@@ -163,23 +160,7 @@ function WorksPage() {
           title="검사하기"
           description="계약서·저작물을 업로드해 공공누리 유형을 자동 분류합니다."
           right={
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="검사명, 파일명으로 검색"
-                className="w-56 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
-              />
-              <button
-                onClick={handleSearch}
-                className="px-4 py-2 bg-primary-700 text-white rounded-lg text-sm font-medium hover:bg-primary-800 transition-colors flex items-center gap-1.5 flex-shrink-0"
-              >
-                <Search className="w-4 h-4" />
-                검색
-              </button>
-            </div>
+            <ListSearch value={searchQuery} onChange={setSearchQuery} onSearch={handleSearch} />
           }
         />
 

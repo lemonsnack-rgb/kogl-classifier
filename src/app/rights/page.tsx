@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import AppLayout from "@/components/layout/AppLayout"
 import PageHeader from "@/components/ui/PageHeader"
+import ListSearch from "@/components/ui/ListSearch"
 import { NewRecordCard, RecordCard, StatusBadge } from "@/components/ui/RecordCard"
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client"
 import type { RightsCheckStatus, RightsSummary } from "@/lib/api/rights-types"
@@ -33,6 +34,8 @@ function formatDate(dateStr: string): string {
 export default function RightsPage() {
   const router = useRouter()
   const [rows, setRows] = useState<RightsCheckRow[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [activeQuery, setActiveQuery] = useState("")
 
   const loadRows = useCallback(async () => {
     if (!isSupabaseConfigured()) return
@@ -61,6 +64,10 @@ export default function RightsPage() {
     return () => clearInterval(interval)
   }, [rows, loadRows])
 
+  const visibleRows = activeQuery.trim()
+    ? rows.filter((r) => (r.file_name || r.id).toLowerCase().includes(activeQuery.toLowerCase()))
+    : rows
+
   return (
     <AppLayout>
       <div>
@@ -68,13 +75,16 @@ export default function RightsPage() {
           icon={ScrollText}
           title="권리추정"
           description="계약서 본문에서 저작재산권·이용조건 등 권리 판정을 추정합니다."
+          right={
+            <ListSearch value={searchQuery} onChange={setSearchQuery} onSearch={() => setActiveQuery(searchQuery)} />
+          }
         />
 
         {/* 카드 그리드 (3메뉴 공통) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           <NewRecordCard label="새 권리추정" onClick={() => router.push("/rights/new")} />
 
-          {rows.map((r) => (
+          {visibleRows.map((r) => (
             <RecordCard
               key={r.id}
               icon={ScrollText}
