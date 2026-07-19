@@ -287,18 +287,27 @@ function SummaryPill({ label, value, color }: { label: string; value: number; co
 
 /* ── 저작물 메타데이터 (SSU 추출) 렌더러 ── */
 const META_LABELS: Record<string, string> = {
-  work_title: "저작물명", work_names: "저작물명", title: "제목",
+  work_title: "저작물명", work_names: "저작물명", title: "제목", keyword: "주제어", keywords: "주제어",
   work_category: "저작물 분류", work_type: "유형", rights_holder: "권리자",
   copyright_holder: "저작권자", author: "저작자", creator: "제작자",
+  agency_name: "기관명", institution: "기관", language: "언어", description: "설명",
   contract_type: "계약서 유형", consent_type: "동의서 유형",
-  granted_rights: "양도 권리", contract_purpose: "계약 목적",
-  contract_duration: "계약 기간", effective_date: "시작일", expiration_date: "종료일",
+  granted_rights: "양도 권리", economic_rights: "저작재산권", commercial_use: "상업적 이용",
+  contract_purpose: "계약 목적", contract_duration: "계약 기간",
+  effective_date: "시작일", expiration_date: "종료일", created_date: "제작일", production_date: "제작일",
   signature_date: "서명일", consent_date: "동의 날짜", consent_status: "동의 여부",
-  payment_amount: "대금", special_terms: "특약사항", institution: "기관",
-  user: "이용기관", parties: "당사자", name: "이름", role: "역할",
+  payment_amount: "대금", special_terms: "특약사항",
+  user: "이용기관", parties: "당사자", name: "이름", role: "역할", phone: "연락처", address: "주소", email: "이메일",
   data_subject: "정보주체", data_controller: "처리기관", registration_no: "등록번호",
 }
+// 관리자에게 무의미한 내부 처리 필드 — 화면에서 숨긴다.
+const HIDDEN_META_KEYS = new Set([
+  "checkbox_info", "checkbox_pattern_detected", "pattern_detected", "checkbox_fields_found",
+  "extraction_confidence", "processing_info", "error", "ner_error", "consolidation_error",
+  "ner_model_key", "consolidation_model", "available_types",
+])
 function metaLabel(k: string): string { return META_LABELS[k] ?? k }
+function metaVisible(k: string): boolean { return !HIDDEN_META_KEYS.has(k) }
 
 function isMeaningful(v: unknown): boolean {
   if (v === null || v === undefined) return false
@@ -336,7 +345,7 @@ function MetaValue({ value }: { value: unknown }) {
     )
   }
   if (typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>).filter(([, v]) => isMeaningful(v))
+    const entries = Object.entries(value as Record<string, unknown>).filter(([k, v]) => metaVisible(k) && isMeaningful(v))
     if (entries.length === 0) return <span className="text-gray-400">-</span>
     return (
       <div className="space-y-1">
@@ -353,7 +362,7 @@ function MetaValue({ value }: { value: unknown }) {
 }
 
 function MetadataTable({ data }: { data: Record<string, unknown> }) {
-  const entries = Object.entries(data).filter(([, v]) => isMeaningful(v))
+  const entries = Object.entries(data).filter(([k, v]) => metaVisible(k) && isMeaningful(v))
   if (entries.length === 0) return <p className="text-sm text-gray-400">추출된 메타데이터가 없습니다.</p>
   return (
     <div className="border border-gray-100 rounded-lg overflow-x-auto">
