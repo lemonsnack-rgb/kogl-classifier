@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import AppLayout from "@/components/layout/AppLayout"
+import PageHeader from "@/components/ui/PageHeader"
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client"
 import { DOCUMENT_TYPES, type DocumentType } from "@/lib/api/config"
 import {
@@ -252,13 +253,13 @@ export default function WorksNewPage() {
   return (
     <AppLayout>
       <div className="max-w-3xl mx-auto space-y-8">
-        {/* 페이지 헤더 */}
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">새 문서 업로드</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            계약서와 저작물을 업로드하여 공공누리 유형을 자동 분류합니다.
-          </p>
-        </div>
+        <PageHeader
+          icon={FileText}
+          title="새 검사 시작"
+          description="계약서와 저작물을 업로드하여 공공누리 유형을 자동 분류합니다."
+          backHref="/works"
+          backLabel="검사하기 목록"
+        />
 
         {/* 스텝 인디케이터 */}
         <div className="flex items-center justify-center gap-0">

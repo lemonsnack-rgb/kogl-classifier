@@ -1,12 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import AppLayout from "@/components/layout/AppLayout"
+import PageHeader from "@/components/ui/PageHeader"
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client"
 import { DOCUMENT_TYPES } from "@/lib/api"
-import { ArrowLeft, Upload } from "lucide-react"
+import { ScrollText, Upload } from "lucide-react"
 
 export default function RightsNewPage() {
   const router = useRouter()
@@ -94,17 +94,13 @@ export default function RightsNewPage() {
   return (
     <AppLayout>
       <div className="max-w-3xl mx-auto space-y-6">
-        {/* 뒤로가기 + 헤더 */}
-        <div>
-          <Link href="/rights" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-2">
-            <ArrowLeft className="w-4 h-4" />
-            권리추정 목록
-          </Link>
-          <h2 className="text-2xl font-bold text-gray-900">새 권리추정</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            계약서를 업로드하거나 본문 텍스트를 입력해 권리유형을 추정합니다.
-          </p>
-        </div>
+        <PageHeader
+          icon={ScrollText}
+          title="새 권리추정"
+          description="계약서를 업로드하거나 본문 텍스트를 입력해 권리유형을 추정합니다."
+          backHref="/rights"
+          backLabel="권리추정 목록"
+        />
 
         {/* 입력 카드 */}
         <div className="bg-white border border-gray-200 rounded-xl p-6">

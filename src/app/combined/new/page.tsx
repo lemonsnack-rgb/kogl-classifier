@@ -1,12 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import AppLayout from "@/components/layout/AppLayout"
+import PageHeader from "@/components/ui/PageHeader"
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client"
 import { DOCUMENT_TYPES } from "@/lib/api"
-import { ArrowLeft, Layers, X } from "lucide-react"
+import { Layers, X } from "lucide-react"
 
 export default function CombinedNewPage() {
   const router = useRouter()
@@ -77,16 +77,13 @@ export default function CombinedNewPage() {
   return (
     <AppLayout>
       <div className="max-w-3xl mx-auto space-y-6">
-        <div>
-          <Link href="/combined" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-2">
-            <ArrowLeft className="w-4 h-4" />
-            통합 검사 목록
-          </Link>
-          <h2 className="text-2xl font-bold text-gray-900">새 통합 검사</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            계약서와 저작물 파일을 업로드하면 메타데이터 추출 · 공공누리 유형 · 권리 판정을 한 화면에서 제공합니다.
-          </p>
-        </div>
+        <PageHeader
+          icon={Layers}
+          title="새 통합 검사"
+          description="계약서와 저작물 파일을 업로드하면 메타데이터 추출 · 공공누리 유형 · 권리 판정을 한 화면에서 제공합니다."
+          backHref="/combined"
+          backLabel="통합 검사 목록"
+        />
 
         <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-5">
           <div>
