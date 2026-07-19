@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
-import Link from "next/link"
 import AppLayout from "@/components/layout/AppLayout"
+import PageHeader from "@/components/ui/PageHeader"
+import ProcessStepper, { stepIndexFromStatus } from "@/components/ui/ProcessStepper"
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client"
 import RightsResultView from "../../rights/RightsResultView"
 import type { RightsPredictResponse, RightsCheckStatus } from "@/lib/api/rights-types"
-import { ArrowLeft } from "lucide-react"
+import { Layers } from "lucide-react"
+
+const COMBINED_STEPS = ["업로드", "OCR·메타데이터", "유형·권리 분석"]
 
 interface HmcTypeInfo {
   predicted_type: string
@@ -36,13 +39,20 @@ export default function CombinedDetailPage() {
   const [row, setRow] = useState<CombinedDetail | null | undefined>(undefined)
 
   useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | undefined
     async function load() {
       if (!isSupabaseConfigured()) { setRow(null); return }
       const supabase = createClient()
       const { data } = await supabase.from("rights_checks").select("*").eq("id", id).single()
-      setRow((data as CombinedDetail) || null)
+      const detail = (data as CombinedDetail) || null
+      setRow(detail)
+      if (detail && (detail.status === "completed" || detail.status === "failed") && timer) {
+        clearInterval(timer)
+      }
     }
     load()
+    timer = setInterval(load, 5000)
+    return () => { if (timer) clearInterval(timer) }
   }, [id])
 
   if (row === undefined) {
@@ -61,17 +71,26 @@ export default function CombinedDetailPage() {
       evidence: row.evidence || [],
     } : null
 
+  const { current, failed } = stepIndexFromStatus(row.status)
+
   return (
     <AppLayout>
       <div className="max-w-4xl mx-auto px-6 py-8">
-        <Link href="/combined" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-4">
-          <ArrowLeft className="w-4 h-4" /> 통합 검사 목록
-        </Link>
-        <h1 className="text-xl font-bold text-gray-900 mb-6">{row.file_name || "통합 검사 결과"}</h1>
+        <PageHeader
+          icon={Layers}
+          title={row.file_name || "통합 검사 결과"}
+          backHref="/combined"
+          backLabel="통합 검사 목록"
+        />
 
         {row.status !== "completed" ? (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-700">
-            상태: {row.status} — 처리가 완료되지 않았습니다.
+          <div className="bg-white border border-gray-200 rounded-xl p-6">
+            <ProcessStepper steps={COMBINED_STEPS} current={current} failed={failed} />
+            <p className={`text-center text-sm mt-4 ${failed ? "text-red-600" : "text-gray-500"}`}>
+              {failed
+                ? "처리에 실패했습니다. 다시 시도해 주세요."
+                : "계약서·저작물을 분석하고 있습니다. 잠시만 기다려 주세요…"}
+            </p>
           </div>
         ) : result ? (
           <RightsResultView
