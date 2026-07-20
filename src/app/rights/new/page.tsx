@@ -18,28 +18,18 @@ export default function RightsNewPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
 
-  // rights_checks 행 생성 후 파이프라인 실행 + 이동 (파일/텍스트 공통)
-  async function runProcess(insertPayload: Record<string, unknown>, processPayload: Record<string, unknown>) {
+  const PIPELINE_URL = process.env.NEXT_PUBLIC_PIPELINE_URL || "https://ilwang-kogl-pipeline.hf.space"
+
+  async function createRow(fileName: string) {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setError("로그인이 필요합니다."); setBusy(false); return }
-
+    if (!user) throw new Error("로그인이 필요합니다.")
     const { data: inserted, error: insErr } = await supabase
       .from("rights_checks")
-      .insert({ user_id: user.id, status: "uploaded", ...insertPayload })
+      .insert({ user_id: user.id, status: "uploaded", file_name: fileName })
       .select("id").single()
     if (insErr || !inserted) throw new Error(`기록 생성 실패: ${insErr?.message}`)
-
-    const res = await fetch("/api/rights/process", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rightsCheckId: inserted.id, ...processPayload }),
-    })
-    if (!res.ok) {
-      const e = await res.json().catch(() => null)
-      throw new Error(e?.error || `처리 실패: ${res.status}`)
-    }
-    router.push(`/rights/${inserted.id}`)
+    return inserted.id as string
   }
 
   async function handleRunFile() {
@@ -49,27 +39,16 @@ export default function RightsNewPage() {
     if (!isSupabaseConfigured()) { setError("Supabase 설정이 필요합니다."); return }
     setBusy(true)
     try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setError("로그인이 필요합니다."); setBusy(false); return }
-
-      // 1) 파일 업로드 (기존 contracts 버킷 재사용)
-      const ext = file.name.split(".").pop() || "pdf"
-      const path = `${user.id}/${crypto.randomUUID()}.${ext}`
-      const { error: upErr } = await supabase.storage.from("contracts").upload(path, file)
-      if (upErr) throw new Error(`업로드 실패: ${upErr.message}`)
-      const { data: pub } = supabase.storage.from("contracts").getPublicUrl(path)
-
-      // 2) rights_checks 행 생성 + 3) 파이프라인 실행 (제목은 검사 명칭)
-      const title = inspectionName.trim()
-      await runProcess(
-        { file_name: title, file_url: pub.publicUrl },
-        { fileUrl: pub.publicUrl, fileName: title, documentType: docType },
-      )
+      const id = await createRow(inspectionName.trim())
+      const fd = new FormData()
+      fd.append("rights_check_id", id)
+      fd.append("document_type", docType)
+      fd.append("file", file)
+      fetch(`${PIPELINE_URL}/process-rights`, { method: "POST", body: fd })
+        .catch((e) => console.error("파이프라인 오류:", e))
+      router.push(`/rights/${id}`)
     } catch (e) {
-      setError(e instanceof Error ? e.message : "오류")
-    } finally {
-      setBusy(false)
+      setError(e instanceof Error ? e.message : "오류"); setBusy(false)
     }
   }
 
@@ -80,14 +59,16 @@ export default function RightsNewPage() {
     setBusy(true)
     try {
       const label = `텍스트 입력 · ${docType}`
-      await runProcess(
-        { file_name: label, file_url: null },
-        { text, fileName: label, documentType: docType },
-      )
+      const id = await createRow(label)
+      const fd = new FormData()
+      fd.append("rights_check_id", id)
+      fd.append("document_type", docType)
+      fd.append("text", text)
+      fetch(`${PIPELINE_URL}/process-rights`, { method: "POST", body: fd })
+        .catch((e) => console.error("파이프라인 오류:", e))
+      router.push(`/rights/${id}`)
     } catch (e) {
-      setError(e instanceof Error ? e.message : "오류")
-    } finally {
-      setBusy(false)
+      setError(e instanceof Error ? e.message : "오류"); setBusy(false)
     }
   }
 

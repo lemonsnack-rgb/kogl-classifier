@@ -17,15 +17,6 @@ export default function CombinedNewPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
 
-  async function uploadOne(supabase: ReturnType<typeof createClient>, userId: string, file: File) {
-    const ext = file.name.split(".").pop() || "pdf"
-    const path = `${userId}/${crypto.randomUUID()}.${ext}`
-    const { error: upErr } = await supabase.storage.from("contracts").upload(path, file)
-    if (upErr) throw new Error(`업로드 실패(${file.name}): ${upErr.message}`)
-    const { data: pub } = supabase.storage.from("contracts").getPublicUrl(path)
-    return pub.publicUrl
-  }
-
   async function handleRun() {
     setError("")
     if (!inspectionName.trim()) { setError("검사 명칭을 입력하세요."); return }
@@ -37,39 +28,25 @@ export default function CombinedNewPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setError("로그인이 필요합니다."); setBusy(false); return }
 
-      const contractUrl = await uploadOne(supabase, user.id, contractFile)
-      const workRefs: { url: string; name: string }[] = []
-      for (const wf of workFiles) {
-        const url = await uploadOne(supabase, user.id, wf)
-        workRefs.push({ url, name: wf.name })
-      }
-
       const title = inspectionName.trim()
       const { data: inserted, error: insErr } = await supabase
         .from("rights_checks")
-        .insert({ user_id: user.id, status: "uploaded", file_name: title, file_url: contractUrl, model_info: { mode: "combined" } })
+        .insert({ user_id: user.id, status: "uploaded", file_name: title, model_info: { mode: "combined" } })
         .select("id").single()
       if (insErr || !inserted) throw new Error(`기록 생성 실패: ${insErr?.message}`)
 
-      const res = await fetch("/api/combined/process", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rightsCheckId: inserted.id,
-          contractFileUrl: contractUrl,
-          contractFileName: contractFile.name,
-          workFiles: workRefs,
-          documentType: docType,
-        }),
-      })
-      if (!res.ok) {
-        const e = await res.json().catch(() => null)
-        throw new Error(e?.error || `처리 실패: ${res.status}`)
-      }
+      const PIPELINE_URL = process.env.NEXT_PUBLIC_PIPELINE_URL || "https://ilwang-kogl-pipeline.hf.space"
+      const fd = new FormData()
+      fd.append("rights_check_id", inserted.id)
+      fd.append("document_type", docType)
+      fd.append("contract", contractFile)
+      for (const wf of workFiles) fd.append("works", wf)
+      fetch(`${PIPELINE_URL}/process-combined`, { method: "POST", body: fd })
+        .catch((e) => console.error("파이프라인 오류:", e))
+
       router.push(`/combined/${inserted.id}`)
     } catch (e) {
       setError(e instanceof Error ? e.message : "오류")
-    } finally {
       setBusy(false)
     }
   }
