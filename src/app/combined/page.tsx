@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useState, useCallback, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import AppLayout from "@/components/layout/AppLayout"
 import PageHeader from "@/components/ui/PageHeader"
 import ListSearch from "@/components/ui/ListSearch"
@@ -34,11 +34,21 @@ function formatDate(dateStr: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 }
 
-export default function CombinedPage() {
+function CombinedPageInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [rows, setRows] = useState<Row[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [activeQuery, setActiveQuery] = useState("")
+  const [successMsg, setSuccessMsg] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (searchParams.get("success") === "1") {
+      setSuccessMsg("통합 검사가 접수되었습니다. 처리 완료 시 목록에서 자동으로 갱신됩니다.")
+      const t = setTimeout(() => setSuccessMsg(null), 6000)
+      return () => clearTimeout(t)
+    }
+  }, [searchParams])
 
   const loadRows = useCallback(async () => {
     if (!isSupabaseConfigured()) return
@@ -77,6 +87,12 @@ export default function CombinedPage() {
           }
         />
 
+        {successMsg && (
+          <div className="mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
+            <p className="text-sm text-green-700 font-medium">✓ {successMsg}</p>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           <NewRecordCard label="새 통합 검사" onClick={() => router.push("/combined/new")} />
 
@@ -112,5 +128,13 @@ export default function CombinedPage() {
         </div>
       </div>
     </AppLayout>
+  )
+}
+
+export default function CombinedPage() {
+  return (
+    <Suspense fallback={<AppLayout><div className="py-12 text-center text-sm text-gray-500">로딩 중…</div></AppLayout>}>
+      <CombinedPageInner />
+    </Suspense>
   )
 }

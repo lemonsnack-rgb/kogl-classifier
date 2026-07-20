@@ -46,7 +46,7 @@ export default function RightsNewPage() {
       fd.append("file", file)
       fetch(`${PIPELINE_URL}/process-rights`, { method: "POST", body: fd })
         .catch((e) => console.error("파이프라인 오류:", e))
-      router.push(`/rights/${id}`)
+      router.push("/rights?success=1")
     } catch (e) {
       setError(e instanceof Error ? e.message : "오류"); setBusy(false)
     }
@@ -66,7 +66,7 @@ export default function RightsNewPage() {
       fd.append("text", text)
       fetch(`${PIPELINE_URL}/process-rights`, { method: "POST", body: fd })
         .catch((e) => console.error("파이프라인 오류:", e))
-      router.push(`/rights/${id}`)
+      router.push("/rights?success=1")
     } catch (e) {
       setError(e instanceof Error ? e.message : "오류"); setBusy(false)
     }

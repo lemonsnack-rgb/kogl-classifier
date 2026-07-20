@@ -44,7 +44,7 @@ export default function CombinedNewPage() {
       fetch(`${PIPELINE_URL}/process-combined`, { method: "POST", body: fd })
         .catch((e) => console.error("파이프라인 오류:", e))
 
-      router.push(`/combined/${inserted.id}`)
+      router.push("/combined?success=1")
     } catch (e) {
       setError(e instanceof Error ? e.message : "오류")
       setBusy(false)
