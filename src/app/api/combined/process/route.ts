@@ -4,6 +4,10 @@ import { predictRights } from "@/lib/api/rights"
 import { classifyKoglType } from "@/lib/api/classifier"
 import { mapSSUToWorkFields } from "@/lib/api/ocr"
 
+// SSU OCR이 느려(파일당 수 분) 계약서+저작물 다건을 순차 처리하므로 최대 실행시간을 넉넉히 둔다.
+export const maxDuration = 300
+export const dynamic = "force-dynamic"
+
 const SSU_API_URL = process.env.NEXT_PUBLIC_SSU_API_URL || ""
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ""

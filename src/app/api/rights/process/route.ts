@@ -2,6 +2,10 @@ import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { predictRights } from "@/lib/api/rights"
 
+// SSU OCR + 권리추정 처리 시간이 길어질 수 있어 최대 실행시간을 넉넉히 둔다.
+export const maxDuration = 300
+export const dynamic = "force-dynamic"
+
 const SSU_API_URL = process.env.NEXT_PUBLIC_SSU_API_URL || ""
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
