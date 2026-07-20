@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import type {
   RightsPredictResponse, RightsResultItem, RightsEvidenceItem, RightsStatus,
 } from "@/lib/api/rights-types"
@@ -408,34 +409,63 @@ function CombinedMetadata({ data }: { data: Record<string, unknown> }) {
           : <p className="text-sm text-gray-400">추출된 계약서 메타데이터가 없습니다.</p>}
       </div>
 
-      {/* ② 저작물 메타데이터 (파일별 20항목) */}
+      {/* ② 저작물 메타데이터 (목록 + 선택 조회) */}
       <div className="bg-white border border-gray-200 rounded-lg p-5">
         <h3 className="text-[15px] font-bold text-gray-800 tracking-tight mb-3">저작물 메타데이터 ({works.length}건)</h3>
         {works.length === 0 ? (
           <p className="text-sm text-gray-400">업로드된 저작물이 없습니다.</p>
         ) : (
-          <div className="space-y-4">
-            {works.map((w, i) => (
-              <div key={i} className="border border-gray-100 rounded-lg overflow-hidden">
-                <div className="bg-gray-50 px-3 py-2 border-b border-gray-100">
-                  <span className="text-sm font-semibold text-gray-700">{String(w.work_filename || `저작물 ${i + 1}`)}</span>
-                </div>
-                <table className="w-full text-sm">
-                  <tbody>
-                    {WORK_FIELD_LABELS.map(([k, label]) => (
-                      <tr key={k} className="border-b border-gray-50 last:border-0">
-                        <td className="px-3 py-1.5 text-gray-500 w-[140px] align-top">{label}</td>
-                        <td className="px-3 py-1.5 text-gray-900">
-                          {isMeaningful(w[k]) ? <MetaValue value={w[k]} /> : <span className="text-gray-400 italic">미식별</span>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ))}
-          </div>
+          <WorksBrowser works={works} />
         )}
+      </div>
+    </div>
+  )
+}
+
+/* ── 저작물 목록 + 선택 조회 (검사하기 상세와 동일 패턴) ── */
+function WorksBrowser({ works }: { works: Record<string, unknown>[] }) {
+  const [selected, setSelected] = useState(0)
+  const w = works[selected] ?? works[0]
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4">
+      {/* 좌: 저작물 목록 */}
+      <div className="border border-gray-200 rounded-lg overflow-hidden divide-y divide-gray-100 self-start">
+        {works.map((item, i) => {
+          const name = String(item.work_filename || `저작물 ${i + 1}`)
+          const active = i === selected
+          return (
+            <button
+              key={i}
+              onClick={() => setSelected(i)}
+              className={`w-full text-left px-3 py-2 text-sm truncate transition-colors ${
+                active ? "bg-primary-50 text-primary-700 font-semibold" : "text-gray-700 hover:bg-gray-50"
+              }`}
+              title={name}
+            >
+              {name}
+            </button>
+          )
+        })}
+      </div>
+      {/* 우: 선택 저작물 20항목 */}
+      <div className="border border-gray-100 rounded-lg overflow-hidden min-w-0">
+        <div className="bg-gray-50 px-3 py-2 border-b border-gray-100">
+          <span className="text-sm font-semibold text-gray-700">{String(w.work_filename || `저작물 ${selected + 1}`)}</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <tbody>
+              {WORK_FIELD_LABELS.map(([k, label]) => (
+                <tr key={k} className="border-b border-gray-50 last:border-0">
+                  <td className="px-3 py-1.5 text-gray-500 w-[140px] align-top">{label}</td>
+                  <td className="px-3 py-1.5 text-gray-900">
+                    {isMeaningful(w[k]) ? <MetaValue value={w[k]} /> : <span className="text-gray-400 italic">미식별</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )
