@@ -25,6 +25,51 @@ TYPE_MAP = {
     "유형4": "KOGL-4",
 }
 
+
+def _first_str(meta: dict, keys: list):
+    """meta에서 keys 순서대로 첫 non-null 값을 문자열로 반환(객체/배열은 JSON 문자열)."""
+    for k in keys:
+        v = meta.get(k)
+        if v is not None:
+            if isinstance(v, (dict, list)):
+                return json.dumps(v, ensure_ascii=False)
+            return str(v)
+    return None
+
+
+def map_ssu_to_work_fields(meta: dict) -> dict:
+    """SSU 추출 결과 → 저작물 20항목 매핑 (src/lib/api/ocr.ts mapSSUToWorkFields와 1:1)."""
+    if meta.get("keyword") is not None:
+        keywords = [str(meta.get("keyword"))]
+    elif meta.get("keywords") is not None:
+        keywords = [str(meta.get("keywords"))]
+    else:
+        keywords = None
+    return {
+        "work_name": _first_str(meta, ["work_title", "work_name", "copyright_kotitle"]),
+        "work_type": None,
+        "digital_format": _first_str(meta, ["digital_format", "copyright_status"]),
+        "description": _first_str(meta, ["description", "copyright_explain"]),
+        "keywords": keywords,
+        "language": _first_str(meta, ["language"]),
+        "created_date": _first_str(meta, ["created_date", "production_date", "copyright_date", "consent_date"]),
+        "creator": _first_str(meta, ["copyright_holder", "rights_holder", "ch_co_name"]),
+        "copyright_holder": _first_str(meta, ["copyright_holder", "rights_holder", "ch_co_name", "data_controller"]),
+        "co_authors": _first_str(meta, ["co_author", "co_authors", "ch_ja_name"]),
+        "neighboring_rights_holder": _first_str(meta, ["neighboring_rights_holder", "ch_nr_name"]),
+        "disclosure_type": _first_str(meta, ["disclosure_type", "kogl_type", "ri_info"]),
+        "copyrightability": _first_str(meta, ["copyrightability"]),
+        "non_protected_work": _first_str(meta, ["non_protected_work", "unprotected_work"]),
+        "work_for_hire": _first_str(meta, ["work_for_hire"]),
+        "commercial_use": _first_str(meta, ["commercial_use", "granted_rights"]),
+        "property_rights": _first_str(meta, ["property_rights", "economic_rights", "ri_copyright"]),
+        "co_author_consent": _first_str(meta, ["co_author_consent", "consent_status"]),
+        "validity_period": _first_str(meta, ["validity_period", "valid_period", "ri_period", "retention_period"]),
+        "portrait_rights": _first_str(meta, ["portrait_rights"]),
+        "copyright_period": _first_str(meta, ["validity_period", "valid_period", "ri_period"]),
+        "usage_scope": _first_str(meta, ["commercial_use", "granted_rights"]),
+    }
+
 app = FastAPI(title="KOGL 파이프라인 서버")
 
 app.add_middleware(
