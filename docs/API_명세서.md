@@ -13,15 +13,15 @@
 
 ## 1. 시스템 구성
 
-서비스는 **3개 벤더 API**를 조합해 동작하며, 프론트엔드(Next.js)는 **2개 내부 라우트**를 통해 이들을 오케스트레이션한다.
+서비스는 **3개 벤더 API**를 조합해 동작하며, 통합·권리 처리는 **KOGL Pipeline Space**가 백그라운드로 오케스트레이션한다(검사하기 파이프라인과 동일 구조). 프론트엔드(Next.js)는 파일/텍스트를 Pipeline으로 전송하고 결과는 `rights_checks`에서 폴링한다.
 
 | 구분 | API | 제공 | 역할 | Base URL(환경변수) |
 |---|---|---|---|---|
 | 벤더 | 공공누리 유형분류 | HM컴퍼니 | 계약서 텍스트 → 공공누리 유형1~4 | `NEXT_PUBLIC_HMC_API_URL` |
 | 벤더 | 권리추정 | HM컴퍼니 | 계약서 텍스트 → 권리 항목별 허용/금지 판정 | `NEXT_PUBLIC_RIGHTS_API_URL` |
 | 벤더 | OCR·메타데이터 추출 | 숭실대 산학협력단 | 파일 → OCR 텍스트 + 메타데이터 | `NEXT_PUBLIC_SSU_API_URL` |
-| 내부 | `/api/rights/process` | 본 서비스 | 권리추정 파이프라인(SSU→권리) | (동일 오리진) |
-| 내부 | `/api/combined/process` | 본 서비스 | 통합 파이프라인(SSU→유형→권리) | (동일 오리진) |
+| 오케스트레이터 | `POST /process-combined` | KOGL Pipeline Space | 통합 파이프라인(SSU→유형→권리→DB) | `NEXT_PUBLIC_PIPELINE_URL` |
+| 오케스트레이터 | `POST /process-rights` | KOGL Pipeline Space | 권리추정 파이프라인(SSU→권리→DB) | `NEXT_PUBLIC_PIPELINE_URL` |
 
 ### 메뉴별 사용 API
 
@@ -361,37 +361,35 @@
 
 ---
 
-## 4. 앱 내부 라우트
+## 4. 백그라운드 처리 (HF Pipeline)
 
-프론트엔드가 벤더 API를 오케스트레이션하는 서버 라우트. 파일은 Supabase Storage에서 다운로드하며, 결과는 `rights_checks` 테이블에 저장한다.
+통합검사·권리추정 처리는 **KOGL Pipeline Space**(FastAPI/HF, `NEXT_PUBLIC_PIPELINE_URL`, 기본 `https://ilwang-kogl-pipeline.hf.space`)에서 백그라운드로 수행한다. SSU OCR이 파일당 수십 초 이상 걸려 Vercel 서버리스 함수 실행 한도(Hobby 60초)를 초과하므로, 처리를 HF Pipeline으로 이관했다. 프론트엔드는 `rights_checks` 행을 먼저 만든 뒤(status=`uploaded`) 파일/텍스트를 아래 엔드포인트로 **multipart/form-data**로 전송(fire-and-forget)하고, Pipeline이 `rights_checks`를 갱신한다. 상세 화면은 5초 폴링으로 상태를 반영한다.
 
-### 4.1 `POST /api/rights/process` (권리추정)
+### 4.1 `POST {PIPELINE_URL}/process-rights` (권리추정)
 
-**요청**
+**요청 (form-data)**
 
 | 필드 | 타입 | 필수 | 설명 |
 |---|---|:---:|---|
-| `rightsCheckId` | string | ✅ | `rights_checks` 레코드 ID(사전 생성) |
+| `rights_check_id` | string | ✅ | `rights_checks` 레코드 ID(사전 생성) |
+| `document_type` | string | | 문서 유형(§5.4) |
+| `file` | file | | PDF/이미지(파일 업로드 시) |
 | `text` | string | | 계약서 본문(직접 입력 시). 있으면 SSU 생략 |
-| `fileUrl` | string | | Supabase Storage 파일 URL(파일 업로드 시) |
-| `fileName` | string | | 파일명 |
-| `documentType` | string | | 문서 유형(§5.4) |
 
-**처리 흐름**: (텍스트 직접 입력 시) 권리추정 즉시 실행 / (파일 시) 파일 다운로드 → SSU `/api/llm-extract` → 권리추정 `/api/v1/rights/predict` → 저장.
+**처리 흐름**: (텍스트) 권리추정 즉시 / (파일) SSU `/api/llm-extract` → 권리추정 `/api/v1/rights/predict` → 저장. 저장: `ocr_text`, (파일 시) `contract_metadata`(consolidated 맵), `summary`/`rights_results`/`evidence`, `model_info = { ...권리모델, type: null, mode: "rights" }`.
 
-**응답**: `{ "success": true, "rightsCheckId": "...", "status": "completed" }` / 실패 시 `{ "error": "..." }` + 레코드 `status="failed"`.
+**응답**: `{ "ok": true, "rights_check_id": "...", "status": "completed" }` / 실패 시 `{ "ok": false, "error": "..." }` + 레코드 `status="failed"`.
 
-### 4.2 `POST /api/combined/process` (통합검사)
+### 4.2 `POST {PIPELINE_URL}/process-combined` (통합검사)
 
-**요청**
+**요청 (form-data)**
 
 | 필드 | 타입 | 필수 | 설명 |
 |---|---|:---:|---|
-| `rightsCheckId` | string | ✅ | `rights_checks` 레코드 ID(사전 생성, `model_info.mode="combined"`) |
-| `contractFileUrl` | string | ✅ | 계약서 파일 URL |
-| `contractFileName` | string | | 계약서 파일명 |
-| `workFiles` | array | | 저작물 파일 목록 `[{ "url": string, "name": string }]` |
-| `documentType` | string | | 문서 유형(기본 "계약서") |
+| `rights_check_id` | string | ✅ | `rights_checks` 레코드 ID(사전 생성, `model_info.mode="combined"`) |
+| `document_type` | string | | 문서 유형(기본 "계약서") |
+| `contract` | file | ✅ | 계약서 파일 |
+| `works` | file | | 저작물 파일(복수 전송 가능; 같은 필드명 `works` 반복) |
 
 **처리 흐름**:
 1. 계약서: SSU `/api/llm-extract` → `ocr_text` + `contract` 메타데이터
@@ -400,7 +398,7 @@
 4. 권리 판정: 권리추정 `/api/v1/rights/predict`
 5. 저장: `contract_metadata = { contract, works }`, `model_info = { ...권리모델, mode:"combined", type: <HMC결과> }`
 
-**응답**: `{ "success": true, "rightsCheckId": "...", "status": "completed", "works": <저작물 수> }`
+**응답**: `{ "ok": true, "rights_check_id": "...", "status": "completed", "works": <저작물 수> }`
 
 > 유형(HMC) 실패는 치명적이지 않으며(권리 결과는 저장), 계약서 SSU 또는 권리추정 실패 시 `status="failed"`.
 
