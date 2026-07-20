@@ -15,6 +15,7 @@ from supabase import create_client
 # 환경변수
 SSU_API_URL = os.environ.get("SSU_API_URL", "http://150.230.114.9:5000")
 HMC_API_URL = os.environ.get("HMC_API_URL", "https://ilwang-kogl-hmc-server.hf.space")
+RIGHTS_API_URL = os.environ.get("RIGHTS_API_URL", "https://ilwang-kogl-rights-api.hf.space")
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 
@@ -69,6 +70,39 @@ def map_ssu_to_work_fields(meta: dict) -> dict:
         "copyright_period": _first_str(meta, ["validity_period", "valid_period", "ri_period"]),
         "usage_scope": _first_str(meta, ["commercial_use", "granted_rights"]),
     }
+
+
+async def _ssu_extract(client, file_bytes, file_name, document_type):
+    files = {"file": (file_name, file_bytes, "application/octet-stream")}
+    data = {"document_type": document_type, "consolidate": "true"}
+    r = await client.post(f"{SSU_API_URL}/api/llm-extract", files=files, data=data)
+    r.raise_for_status()
+    return r.json()
+
+
+async def _hmc_classify(client, ocr_text, file_name):
+    r = await client.post(
+        f"{HMC_API_URL}/api/predict",
+        json={"text": ocr_text, "file_name": file_name, "auto_detect_form": True},
+    )
+    r.raise_for_status()
+    return r.json()
+
+
+async def _rights_predict(client, ocr_text, file_name):
+    r = await client.post(
+        f"{RIGHTS_API_URL}/api/v1/rights/predict",
+        json={
+            "file_name": file_name or "",
+            "text": ocr_text,
+            "options": {
+                "max_length": 512, "max_evidence": 20, "evidence_threshold": 0.7,
+                "return_offsets": True, "return_evidence_text": True, "include_debug": False,
+            },
+        },
+    )
+    r.raise_for_status()
+    return r.json()
 
 app = FastAPI(title="KOGL 파이프라인 서버")
 
@@ -255,6 +289,119 @@ async def process_pipeline(
         "kogl_type": TYPE_MAP.get(hmc_result.get("predicted_type", "")) if hmc_result else None,
         "processing_time": ssu_result.get("processing_time", 0) if ssu_result else 0,
     }
+
+
+@app.post("/process-combined")
+async def process_combined(
+    rights_check_id: str = Form(...),
+    document_type: str = Form("계약서"),
+    contract: UploadFile = File(...),
+    works: list[UploadFile] = File(default=[]),
+):
+    sb = get_supabase()
+    contract_name = contract.filename or "contract.pdf"
+    contract_bytes = await contract.read()
+    work_files = [((w.filename or f"work_{i}"), await w.read()) for i, w in enumerate(works)]
+
+    def upd(fields):
+        if sb:
+            sb.table("rights_checks").update(fields).eq("id", rights_check_id).execute()
+
+    upd({"status": "ocr_processing"})
+    try:
+        async with httpx.AsyncClient(timeout=600.0) as client:
+            ssu = await _ssu_extract(client, contract_bytes, contract_name, document_type)
+            ocr_text = ssu.get("ocr_text", "") or ""
+            contract_meta = ssu.get("consolidated_metadata") or ssu.get("metadata")
+            works_out = []
+            for (wname, wbytes) in work_files:
+                try:
+                    wssu = await _ssu_extract(client, wbytes, wname, "기타문서")
+                    wmeta = wssu.get("consolidated_metadata") or wssu.get("metadata") or {}
+                    works_out.append({"work_filename": wname, **map_ssu_to_work_fields(wmeta)})
+                except Exception:
+                    works_out.append({"work_filename": wname, "_error": "추출 실패"})
+            upd({
+                "ocr_text": ocr_text[:20000],
+                "contract_metadata": {"contract": contract_meta, "works": works_out},
+                "status": "predicting",
+            })
+            hmc_type = None
+            try:
+                hmc = await _hmc_classify(client, ocr_text, contract_name)
+                hmc_type = {
+                    "source": "hmc",
+                    "predicted_type": hmc.get("predicted_type"),
+                    "predicted_display": hmc.get("predicted_display"),
+                    "description": hmc.get("predicted_description"),
+                    "confidence": hmc.get("confidence"),
+                    "probabilities": hmc.get("probabilities"),
+                    "evidence_sentences": [
+                        {"sentence": e.get("sentence"), "best_type": e.get("best_type"), "score": e.get("score")}
+                        for e in (hmc.get("evidence_sentences") or [])
+                    ],
+                }
+            except Exception:
+                hmc_type = None
+            rights = await _rights_predict(client, ocr_text, contract_name)
+            upd({
+                "summary": rights.get("summary"),
+                "rights_results": rights.get("rights_results"),
+                "evidence": rights.get("evidence"),
+                "model_info": {**(rights.get("model") or {}), "mode": "combined", "type": hmc_type},
+                "status": "completed",
+            })
+        return {"ok": True, "rights_check_id": rights_check_id, "status": "completed", "works": len(work_files)}
+    except Exception as e:
+        upd({"status": "failed"})
+        return {"ok": False, "rights_check_id": rights_check_id, "error": str(e)[:300]}
+
+
+@app.post("/process-rights")
+async def process_rights(
+    rights_check_id: str = Form(...),
+    document_type: str = Form("기타문서"),
+    file: UploadFile = File(default=None),
+    text: str = Form(default=""),
+):
+    sb = get_supabase()
+
+    def upd(fields):
+        if sb:
+            sb.table("rights_checks").update(fields).eq("id", rights_check_id).execute()
+
+    try:
+        async with httpx.AsyncClient(timeout=600.0) as client:
+            fname = "text"
+            if text and text.strip():
+                ocr_text = text.strip()[:20000]
+                upd({"ocr_text": ocr_text, "status": "predicting"})
+            elif file is not None:
+                upd({"status": "ocr_processing"})
+                fbytes = await file.read()
+                fname = file.filename or "document.pdf"
+                ssu = await _ssu_extract(client, fbytes, fname, document_type)
+                ocr_text = (ssu.get("ocr_text", "") or "")[:20000]
+                upd({
+                    "ocr_text": ocr_text,
+                    "contract_metadata": ssu.get("consolidated_metadata") or ssu.get("metadata"),
+                    "status": "predicting",
+                })
+            else:
+                upd({"status": "failed"})
+                return {"ok": False, "error": "file 또는 text 필요"}
+            rights = await _rights_predict(client, ocr_text, fname)
+            upd({
+                "summary": rights.get("summary"),
+                "rights_results": rights.get("rights_results"),
+                "evidence": rights.get("evidence"),
+                "model_info": {**(rights.get("model") or {}), "type": None, "mode": "rights"},
+                "status": "completed",
+            })
+        return {"ok": True, "rights_check_id": rights_check_id, "status": "completed"}
+    except Exception as e:
+        upd({"status": "failed"})
+        return {"ok": False, "rights_check_id": rights_check_id, "error": str(e)[:300]}
 
 
 if __name__ == "__main__":
