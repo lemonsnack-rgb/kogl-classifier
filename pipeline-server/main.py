@@ -6,6 +6,7 @@ KOGL 파이프라인 서버
 
 import os
 import json
+import asyncio
 from datetime import datetime, timezone
 import httpx
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
@@ -80,19 +81,38 @@ async def _ssu_extract(client, file_bytes, file_name, document_type):
     return r.json()
 
 
+# HF Space가 sleeping이면 콜드스타트 중 502/503/504를 반환할 수 있어 재시도로 기상을 기다린다.
+_COLD_STATUSES = {502, 503, 504}
+
+
+async def _post_json_retry(client, url, payload, attempts=6, wait=15.0):
+    last = None
+    for _ in range(attempts):
+        try:
+            r = await client.post(url, json=payload)
+            if r.status_code in _COLD_STATUSES:
+                last = f"HTTP {r.status_code} (콜드스타트 추정)"
+                await asyncio.sleep(wait)
+                continue
+            r.raise_for_status()
+            return r.json()
+        except httpx.RequestError as e:
+            last = f"{type(e).__name__}: {e}"
+            await asyncio.sleep(wait)
+    raise RuntimeError(f"요청 실패({url}): {last}")
+
+
 async def _hmc_classify(client, ocr_text, file_name):
-    r = await client.post(
-        f"{HMC_API_URL}/api/predict",
-        json={"text": ocr_text, "file_name": file_name, "auto_detect_form": True},
+    return await _post_json_retry(
+        client, f"{HMC_API_URL}/api/predict",
+        {"text": ocr_text, "file_name": file_name, "auto_detect_form": True},
     )
-    r.raise_for_status()
-    return r.json()
 
 
 async def _rights_predict(client, ocr_text, file_name):
-    r = await client.post(
-        f"{RIGHTS_API_URL}/api/v1/rights/predict",
-        json={
+    return await _post_json_retry(
+        client, f"{RIGHTS_API_URL}/api/v1/rights/predict",
+        {
             "file_name": file_name or "",
             "text": ocr_text,
             "options": {
@@ -101,8 +121,6 @@ async def _rights_predict(client, ocr_text, file_name):
             },
         },
     )
-    r.raise_for_status()
-    return r.json()
 
 app = FastAPI(title="KOGL 파이프라인 서버")
 
