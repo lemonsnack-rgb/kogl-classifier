@@ -127,6 +127,7 @@ export default function WorkDetailPage() {
   const id = params.id as string
 
   const [contract, setContract] = useState<Contract | null | undefined>(undefined)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedWorkIdx, setSelectedWorkIdx] = useState<number | null>(null)
   const [showMetaDetail, setShowMetaDetail] = useState(false)
@@ -139,6 +140,8 @@ export default function WorkDetailPage() {
       if (isSupabaseConfigured()) {
         try {
           const supabase = createClient()
+          const { data: { user } } = await supabase.auth.getUser()
+          setCurrentUserId(user?.id ?? null)
 
           // 계약서 정보
           const { data: contractData, error: contractError } = await supabase
@@ -514,7 +517,8 @@ export default function WorkDetailPage() {
           <p className="text-sm text-gray-400">추출된 계약서 메타데이터가 없습니다.</p>
         )}
         works={consoleWorks}
-        onSaveWork={saveWork}
+        onSaveWork={currentUserId && contract.user_id === currentUserId ? saveWork : undefined}
+        editNote={currentUserId && contract.user_id === currentUserId ? undefined : "본인 검사만 수정 가능합니다"}
         worksFooter={
           <button onClick={() => downloadCsv(works, contract.contract_filename)} className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
             <Download className="w-4 h-4" /> 엑셀 다운로드

@@ -21,6 +21,7 @@ interface HmcTypeInfo {
 
 interface CombinedDetail {
   id: string
+  user_id: string | null
   file_name: string | null
   status: RightsCheckStatus
   ocr_text: string | null
@@ -36,12 +37,15 @@ export default function CombinedDetailPage() {
   const params = useParams()
   const id = params.id as string
   const [row, setRow] = useState<CombinedDetail | null | undefined>(undefined)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | undefined
     async function load() {
       if (!isSupabaseConfigured()) { setRow(null); return }
       const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      setCurrentUserId(user?.id ?? null)
       const { data } = await supabase.from("rights_checks").select("*").eq("id", id).single()
       const detail = (data as CombinedDetail) || null
       setRow(detail)
@@ -155,7 +159,8 @@ export default function CombinedDetailPage() {
             : <p className="text-sm text-gray-400">추출된 계약서 메타데이터가 없습니다.</p>
         }
         works={works}
-        onSaveWork={saveWork}
+        onSaveWork={currentUserId && row.user_id === currentUserId ? saveWork : undefined}
+        editNote={currentUserId && row.user_id === currentUserId ? undefined : "본인 검사만 수정 가능합니다"}
       />
     </AppLayout>
   )

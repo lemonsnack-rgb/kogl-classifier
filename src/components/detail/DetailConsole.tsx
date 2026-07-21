@@ -152,10 +152,12 @@ export interface DetailConsoleProps {
   worksFooter?: React.ReactNode
   /** 저작물 우측 패널 헤더의 저작물별 액션(미리보기 등) */
   workActions?: (work: Record<string, unknown>, index: number) => React.ReactNode
+  /** onSaveWork 미제공(수정 불가) 시 헤더에 노출할 안내 문구 */
+  editNote?: string
 }
 
 export default function DetailConsole({
-  title, backHref, backLabel, leftTop, contractMetaNode, works, onSaveWork, worksFooter, workActions,
+  title, backHref, backLabel, leftTop, contractMetaNode, works, onSaveWork, worksFooter, workActions, editNote,
 }: DetailConsoleProps) {
   const [localWorks, setLocalWorks] = useState(works)
   const [sel, setSel] = useState<"contract" | number | null>(null)
@@ -293,7 +295,7 @@ export default function DetailConsole({
                 <div className="flex items-center gap-2">
                   {savedMsg && <span className="text-xs text-green-600 font-medium">✓ 저장됨</span>}
                   {!editing && workActions && workActions(w, sel as number)}
-                  {onSaveWork && (!editing ? (
+                  {onSaveWork ? (!editing ? (
                     <button onClick={startEdit}
                       className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-primary-600 border border-primary-200 rounded-md hover:bg-primary-50 transition-colors">
                       <Pencil className="w-3 h-3" /> 수정
@@ -309,7 +311,7 @@ export default function DetailConsole({
                         <X className="w-3 h-3" /> 취소
                       </button>
                     </>
-                  ))}
+                  )) : (editNote && <span className="text-xs text-gray-400 italic">{editNote}</span>)}
                 </div>
               </div>
 
