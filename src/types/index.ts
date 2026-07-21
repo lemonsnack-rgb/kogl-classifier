@@ -2,8 +2,8 @@
 // 공공저작물 권리유형 자동분류 서비스 - 타입 정의
 // ========================================
 
-// KOGL 유형
-export type KoglType = "KOGL-1" | "KOGL-2" | "KOGL-3" | "KOGL-4"
+// KOGL 유형 (제0유형=자유이용 포함)
+export type KoglType = "KOGL-0" | "KOGL-1" | "KOGL-2" | "KOGL-3" | "KOGL-4"
 
 // 처리 상태
 export type ContractStatus =
@@ -153,6 +153,11 @@ export interface Work {
   co_author_consent: string | null // 18. 공동저작자 동의
   validity_period: string | null // 19. 유효기간
   portrait_rights: string | null // 20. 초상권
+  // ── 신유형 판정 (제0유형·AI유형) ──
+  resolved_type?: KoglType | null // 저작물별 확정 유형(제0~4). AI유형은 별도 boolean.
+  ai_type_applied?: boolean | null // AI유형 해당 여부(제1~4에 병행, 제0은 N/A)
+  type_reason?: string | null // 판정 근거(사용한 메타 필드 서술)
+  type_low_confidence?: boolean | null // 자동 추정 불확실 → "확인 권장" 표시용
   // ── 기존 호환 필드 ──
   copyright_period: string | null
   usage_scope: string | null
@@ -211,6 +216,11 @@ export const KOGL_TYPES: Record<
   KoglType,
   { label: string; description: string; color: string }
 > = {
+  "KOGL-0": {
+    label: "제0유형",
+    description: "자유이용",
+    color: "#6B21A8",
+  },
   "KOGL-1": {
     label: "제1유형",
     description: "출처표시",
