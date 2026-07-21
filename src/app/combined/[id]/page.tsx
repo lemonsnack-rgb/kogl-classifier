@@ -3,12 +3,11 @@
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import AppLayout from "@/components/layout/AppLayout"
-import PageHeader from "@/components/ui/PageHeader"
 import ProcessStepper, { stepIndexFromStatus } from "@/components/ui/ProcessStepper"
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client"
-import RightsResultView from "../../rights/RightsResultView"
+import RightsResultView, { MetadataTable } from "../../rights/RightsResultView"
+import DetailConsole from "@/components/detail/DetailConsole"
 import type { RightsPredictResponse, RightsCheckStatus } from "@/lib/api/rights-types"
-import { Layers } from "lucide-react"
 
 const COMBINED_STEPS = ["업로드", "OCR·메타데이터", "유형·권리 분석"]
 
@@ -73,17 +72,24 @@ export default function CombinedDetailPage() {
 
   const { current, failed } = stepIndexFromStatus(row.status)
 
-  return (
-    <AppLayout>
-      <div className="max-w-4xl mx-auto px-6 py-8">
-        <PageHeader
-          icon={Layers}
-          title={row.file_name || "통합 검사 결과"}
-          backHref="/combined"
-          backLabel="통합 검사 목록"
-        />
+  // 통합 메타데이터: { contract, works }
+  const meta = (row.contract_metadata as { contract?: Record<string, unknown> | null; works?: Record<string, unknown>[] } | null) || null
+  const contract = meta?.contract || null
+  const works = meta?.works || []
 
-        {row.status !== "completed" ? (
+  async function saveWork(_index: number, _patch: Record<string, unknown>, nextWorks: Record<string, unknown>[]) {
+    const supabase = createClient()
+    const { error } = await supabase
+      .from("rights_checks")
+      .update({ contract_metadata: { contract: contract ?? null, works: nextWorks } })
+      .eq("id", id)
+    if (error) throw new Error(error.message)
+  }
+
+  if (row.status !== "completed") {
+    return (
+      <AppLayout>
+        <div className="max-w-4xl mx-auto px-6 py-8">
           <div className="bg-white border border-gray-200 rounded-xl p-6">
             <ProcessStepper steps={COMBINED_STEPS} current={current} failed={failed} />
             <p className={`text-center text-sm mt-4 ${failed ? "text-red-600" : "text-gray-500"}`}>
@@ -92,20 +98,41 @@ export default function CombinedDetailPage() {
                 : "계약서·저작물을 분석하고 있습니다. 잠시만 기다려 주세요…"}
             </p>
           </div>
-        ) : result ? (
-          <RightsResultView
-            data={result}
-            ocrText={row.ocr_text}
-            showType={false}
-            showHighlight
-            metadata={row.contract_metadata}
-            hmcType={row.model_info?.type ?? null}
-            recordId={row.id}
-          />
-        ) : (
-          <p className="text-sm text-gray-400">결과가 없습니다.</p>
-        )}
-      </div>
+        </div>
+      </AppLayout>
+    )
+  }
+
+  return (
+    <AppLayout>
+      <DetailConsole
+        title={row.file_name || "통합 검사 결과"}
+        backHref="/combined"
+        backLabel="통합 검사 목록"
+        leftTop={
+          result ? (
+            <RightsResultView
+              data={result}
+              ocrText={row.ocr_text}
+              showType={false}
+              showHighlight
+              metadata={row.contract_metadata}
+              hmcType={row.model_info?.type ?? null}
+              recordId={row.id}
+              showMetadata={false}
+            />
+          ) : (
+            <p className="text-sm text-gray-400">권리 판정 결과가 없습니다.</p>
+          )
+        }
+        contractMetaNode={
+          contract && Object.keys(contract).length > 0
+            ? <MetadataTable data={contract} />
+            : <p className="text-sm text-gray-400">추출된 계약서 메타데이터가 없습니다.</p>
+        }
+        works={works}
+        onSaveWork={saveWork}
+      />
     </AppLayout>
   )
 }

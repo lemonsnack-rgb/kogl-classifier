@@ -81,7 +81,7 @@ interface HmcType {
 }
 
 export default function RightsResultView({
-  data, ocrText, showType = true, showHighlight = true, metadata, hmcType, recordId,
+  data, ocrText, showType = true, showHighlight = true, metadata, hmcType, recordId, showMetadata = true,
 }: {
   data: RightsPredictResponse
   ocrText?: string | null
@@ -90,6 +90,7 @@ export default function RightsResultView({
   metadata?: Record<string, unknown> | null
   hmcType?: HmcType | null
   recordId?: string
+  showMetadata?: boolean
 }) {
   const grouped = GROUP_ORDER.map((g) => ({
     group: g,
@@ -103,7 +104,7 @@ export default function RightsResultView({
   return (
     <div className="space-y-6">
       {/* 저작물/문서 메타데이터 */}
-      {metadata && (isCombinedMeta(metadata) ? (
+      {showMetadata && metadata && (isCombinedMeta(metadata) ? (
         <CombinedMetadata data={metadata} recordId={recordId} />
       ) : hasAnyValue(metadata) ? (
         <div className="bg-white border border-gray-200 rounded-lg p-5">
@@ -409,7 +410,7 @@ function MetaValue({ value }: { value: unknown }) {
   return <span className="text-gray-900">{String(value)}</span>
 }
 
-function MetadataTable({ data }: { data: Record<string, unknown> }) {
+export function MetadataTable({ data }: { data: Record<string, unknown> }) {
   const entries = Object.entries(data).filter(([k, v]) => metaVisible(k) && isMeaningful(v))
   if (entries.length === 0) return <p className="text-sm text-gray-400">추출된 메타데이터가 없습니다.</p>
   return (
