@@ -73,6 +73,70 @@ def map_ssu_to_work_fields(meta: dict) -> dict:
     }
 
 
+_TRUE_TOKENS = ("예", "yes", "true", "해당", "포함", "있음", "적용", "동의")
+_FALSE_TOKENS = ("아니", "no", "false", "미해당", "없음", "불포함", "미적용", "해당 없음", "해당없음")
+_EXPIRED_TOKENS = ("만료", "비보호", "expired", "public domain", "퍼블릭도메인")
+
+
+def _is_true(v) -> bool:
+    if v is None:
+        return False
+    s = str(v).strip().lower()
+    if not s:
+        return False
+    if any(t in s for t in _FALSE_TOKENS):
+        return False
+    return any(t in s for t in _TRUE_TOKENS)
+
+
+def _is_expired(v) -> bool:
+    if v is None:
+        return False
+    s = str(v).lower()
+    return any(t in s for t in _EXPIRED_TOKENS)
+
+
+def resolve_kogl_type(work_meta: dict, hmc_type):
+    """SSU 저작물 메타 + HMC 유형 → 저작물별 신유형 판정(후처리 규칙)."""
+    non_protected = work_meta.get("non_protected_work")
+    work_for_hire = work_meta.get("work_for_hire")
+    portrait = work_meta.get("portrait_rights")
+    consent = work_meta.get("co_author_consent")
+
+    hmc_valid = hmc_type if hmc_type in ("KOGL-1", "KOGL-2", "KOGL-3", "KOGL-4") else None
+    resolved = hmc_valid
+    ai_candidate = False
+    reason = None
+    low_confidence = False
+
+    if _is_true(non_protected) or _is_expired(non_protected):
+        resolved = "KOGL-0"
+        reason = "비보호(만료)저작물"
+    elif _is_true(work_for_hire) and not _is_true(portrait):
+        resolved = "KOGL-0"
+        reason = "업무상저작물, 초상권 없음"
+    else:
+        if hmc_valid is None:
+            reason = "유형 신호 부족(계약서 판정 없음)"
+        else:
+            reason = "계약 기반 유형(상업·변경 축)"
+        if _is_true(consent):
+            ai_candidate = True
+
+    if resolved == "KOGL-0":
+        ai_candidate = False
+
+    if not (_is_true(non_protected) or _is_expired(non_protected) or _is_true(work_for_hire) or hmc_valid):
+        low_confidence = True
+
+    return {
+        "resolved_type": resolved,
+        "ai_candidate": ai_candidate,
+        "reason": reason,
+        "low_confidence": low_confidence,
+    }
+
+
 async def _ssu_extract(client, file_bytes, file_name, document_type):
     files = {"file": (file_name, file_bytes, "application/octet-stream")}
     data = {"document_type": document_type, "consolidate": "true"}
