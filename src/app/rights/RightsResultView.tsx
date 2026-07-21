@@ -6,6 +6,36 @@ import { createClient } from "@/lib/supabase/client"
 import type {
   RightsPredictResponse, RightsResultItem, RightsEvidenceItem, RightsStatus,
 } from "@/lib/api/rights-types"
+import { KOGL_TYPES, type KoglType } from "@/types"
+
+const KOGL_TYPE_ORDER: KoglType[] = ["KOGL-0", "KOGL-1", "KOGL-2", "KOGL-3", "KOGL-4"]
+
+function isKoglType(v: unknown): v is KoglType {
+  return typeof v === "string" && (KOGL_TYPE_ORDER as string[]).includes(v)
+}
+
+/* 저작물별 확정 유형 뱃지(제0~4). KOGL_TYPES 색상 사용. */
+function TypeBadge({ type }: { type: unknown }) {
+  if (!isKoglType(type)) return <span className="text-xs text-gray-400 italic">유형 미판정</span>
+  const meta = KOGL_TYPES[type]
+  return (
+    <span
+      className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold text-white"
+      style={{ backgroundColor: meta.color }}
+    >
+      {meta.label} · {meta.description}
+    </span>
+  )
+}
+
+/* AI유형 뱃지(제1~4에만 병행, 제0은 N/A). */
+function AiBadge() {
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border border-indigo-300 text-indigo-700 bg-indigo-50">
+      AI 학습 가능
+    </span>
+  )
+}
 
 const GROUP_ORDER = ["저작재산권", "이용조건", "계약성격", "이용범위", "대가조건", "기타"]
 
@@ -456,6 +486,8 @@ function WorksBrowser({
   const [selected, setSelected] = useState(0)
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState<Record<string, string>>({})
+  const [typeForm, setTypeForm] = useState<string>("") // resolved_type (제0~4 또는 "")
+  const [aiForm, setAiForm] = useState<boolean>(false) // ai_type_applied
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState(false)
 
@@ -473,6 +505,8 @@ function WorksBrowser({
     const f: Record<string, string> = {}
     for (const [k] of WORK_FIELD_LABELS) f[k] = toStr(w[k])
     setForm(f)
+    setTypeForm(isKoglType(w.resolved_type) ? w.resolved_type : "")
+    setAiForm(w.ai_type_applied === true)
     setEditing(true)
     setSavedMsg(false)
   }
@@ -487,6 +521,9 @@ function WorksBrowser({
       if (k === "keywords") updated[k] = val ? val.split(",").map((s) => s.trim()).filter(Boolean) : null
       else updated[k] = val || null
     }
+    // 신유형 판정: 유형(제0~4) + AI유형(제0이면 항상 N/A=false)
+    updated.resolved_type = typeForm || null
+    updated.ai_type_applied = typeForm === "KOGL-0" ? false : aiForm
     const newWorks = localWorks.map((x, i) => (i === selected ? updated : x))
     setSaving(true)
     try {
@@ -563,6 +600,44 @@ function WorksBrowser({
               </>
             )}
           </div>
+        </div>
+        {/* 판정 결과: 확정 유형 + AI유형 + 근거 (수정 시 드롭다운·체크박스) */}
+        <div className="mb-4 bg-white border border-gray-200 rounded-lg border-l-4 border-l-purple-500 p-4">
+          <div className="text-xs font-bold text-gray-500 mb-2">공공누리 유형 판정</div>
+          {editing ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                value={typeForm}
+                onChange={(e) => setTypeForm(e.target.value)}
+                className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="">미판정</option>
+                {KOGL_TYPE_ORDER.map((t) => (
+                  <option key={t} value={t}>{KOGL_TYPES[t].label} · {KOGL_TYPES[t].description}</option>
+                ))}
+              </select>
+              <label className={`inline-flex items-center gap-1.5 text-sm ${typeForm === "KOGL-0" ? "text-gray-300" : "text-gray-700"}`}>
+                <input
+                  type="checkbox"
+                  checked={typeForm === "KOGL-0" ? false : aiForm}
+                  disabled={typeForm === "KOGL-0"}
+                  onChange={(e) => setAiForm(e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                AI유형 해당
+              </label>
+              {typeForm === "KOGL-0" && <span className="text-xs text-gray-400">제0유형은 AI유형 해당 없음</span>}
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <TypeBadge type={w.resolved_type} />
+              {isKoglType(w.resolved_type) && w.resolved_type !== "KOGL-0" && w.ai_type_applied === true && <AiBadge />}
+              {w.type_low_confidence === true && <span className="text-xs text-amber-600 font-medium">⚠ 자동 추정 · 확인 권장</span>}
+              {typeof w.type_reason === "string" && w.type_reason && (
+                <span className="text-xs text-gray-500">· {w.type_reason}</span>
+              )}
+            </div>
+          )}
         </div>
         <div className="space-y-4">
           {WORK_GROUPS.map((section) => (
