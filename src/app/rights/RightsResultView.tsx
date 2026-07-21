@@ -422,37 +422,47 @@ function CombinedMetadata({ data }: { data: Record<string, unknown> }) {
   )
 }
 
-/* ── 저작물 목록 + 선택 조회 (검사하기 상세와 동일 패턴) ── */
+/* ── 저작물 목록 + 선택 조회 (검사하기 상세 디자인과 동기화) ── */
+const WORK_TYPE_LABELS: Record<string, string> = { image: "이미지", text: "텍스트", audio: "오디오", video: "영상" }
+
 function WorksBrowser({ works }: { works: Record<string, unknown>[] }) {
   const [selected, setSelected] = useState(0)
   const w = works[selected] ?? works[0]
+  const selName = String(w.work_filename || `저작물 ${selected + 1}`)
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4">
-      {/* 좌: 저작물 목록 */}
-      <div className="border border-gray-200 rounded-lg overflow-hidden divide-y divide-gray-100 self-start">
+    <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-4">
+      {/* 좌: 저작물 목록 (번호 배지 + 선택 강조 + 좌측 액센트 바) */}
+      <div className="space-y-1 self-start">
         {works.map((item, i) => {
           const name = String(item.work_filename || `저작물 ${i + 1}`)
+          const wt = item.work_type ? String(item.work_type) : null
           const active = i === selected
           return (
             <button
               key={i}
               onClick={() => setSelected(i)}
-              className={`w-full text-left px-3 py-2 text-sm truncate transition-colors ${
-                active ? "bg-primary-50 text-primary-700 font-semibold" : "text-gray-700 hover:bg-gray-50"
+              className={`w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-colors relative ${
+                active ? "bg-primary-50 border border-primary-200" : "hover:bg-gray-50 border border-transparent"
               }`}
               title={name}
             >
-              {name}
+              {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-primary-600 rounded-r" />}
+              <span className={`inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold flex-shrink-0 ${
+                active ? "bg-primary-600 text-white" : "bg-gray-200 text-gray-600"
+              }`}>{i + 1}</span>
+              <span className="flex-1 min-w-0 text-sm text-gray-900 font-medium truncate">{name}</span>
+              {wt && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 flex-shrink-0">{WORK_TYPE_LABELS[wt] ?? wt}</span>}
             </button>
           )
         })}
       </div>
-      {/* 우: 선택 저작물 20항목 */}
-      <div className="border border-gray-100 rounded-lg overflow-hidden min-w-0">
-        <div className="bg-gray-50 px-3 py-2 border-b border-gray-100">
-          <span className="text-sm font-semibold text-gray-700">{String(w.work_filename || `저작물 ${selected + 1}`)}</span>
+      {/* 우: 선택 저작물 20항목 (gray-50 패널) */}
+      <div className="bg-gray-50 rounded-lg p-5 min-w-0">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-primary-600 text-white text-xs font-bold flex-shrink-0">{selected + 1}</span>
+          <h4 className="text-sm font-semibold text-gray-800 truncate">{selName}</h4>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto bg-white border border-gray-100 rounded-lg">
           <table className="w-full text-sm">
             <tbody>
               {WORK_FIELD_LABELS.map(([k, label]) => (
