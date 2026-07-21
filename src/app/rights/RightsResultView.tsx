@@ -410,8 +410,9 @@ function MetaValue({ value }: { value: unknown }) {
   return <span className="text-gray-900">{String(value)}</span>
 }
 
-export function MetadataTable({ data }: { data: Record<string, unknown> }) {
-  const entries = Object.entries(data).filter(([k, v]) => metaVisible(k) && isMeaningful(v))
+export function MetadataTable({ data, showEmpty = false }: { data: Record<string, unknown>; showEmpty?: boolean }) {
+  // showEmpty=true면 내부 처리 필드(HIDDEN)만 숨기고 빈 값도 '-'로 표시(계약서 전체 조회용).
+  const entries = Object.entries(data).filter(([k, v]) => metaVisible(k) && (showEmpty || isMeaningful(v)))
   if (entries.length === 0) return <p className="text-sm text-gray-400">추출된 메타데이터가 없습니다.</p>
   return (
     <div className="border border-gray-100 rounded-lg overflow-x-auto">

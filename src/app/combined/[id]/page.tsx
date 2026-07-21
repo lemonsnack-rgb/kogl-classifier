@@ -127,7 +127,7 @@ export default function CombinedDetailPage() {
         }
         contractMetaNode={
           contract && Object.keys(contract).length > 0
-            ? <MetadataTable data={contract} />
+            ? <MetadataTable data={contract} showEmpty />
             : <p className="text-sm text-gray-400">추출된 계약서 메타데이터가 없습니다.</p>
         }
         works={works}

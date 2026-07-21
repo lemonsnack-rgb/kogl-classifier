@@ -7,6 +7,7 @@ import AppLayout from "@/components/layout/AppLayout"
 import { getContractById } from "@/lib/mock/data"
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client"
 import DetailConsole from "@/components/detail/DetailConsole"
+import { MetadataTable as SharedMetaTable } from "../../rights/RightsResultView"
 import type { Contract } from "@/types"
 import { KOGL_TYPES, STATUS_META } from "@/types"
 import type { KoglType, ContractStatus, ClauseType, Work } from "@/types"
@@ -484,7 +485,7 @@ export default function WorkDetailPage() {
           </div>
         }
         contractMetaNode={contract.contract_metadata ? (
-          <MetadataTable data={contract.contract_metadata as unknown as Record<string, unknown>} editing={false} form={{}} onChange={() => {}} />
+          <SharedMetaTable data={contract.contract_metadata as unknown as Record<string, unknown>} showEmpty />
         ) : (
           <p className="text-sm text-gray-400">추출된 계약서 메타데이터가 없습니다.</p>
         )}

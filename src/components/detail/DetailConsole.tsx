@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Pencil, Save, X } from "lucide-react"
+import { ArrowLeft, Pencil, Save, X, ChevronRight, FileText } from "lucide-react"
 import { KOGL_TYPES, type KoglType } from "@/types"
 
 /* ============================================================
@@ -213,12 +213,15 @@ export default function DetailConsole({
               {contractMetaNode && (
                 <button
                   onClick={selectContract}
-                  className={`w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-colors relative ${
-                    sel === "contract" ? "bg-primary-50 border border-primary-200" : "hover:bg-gray-50 border border-transparent"
+                  className={`group w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg border transition-colors relative cursor-pointer ${
+                    sel === "contract" ? "bg-primary-50 border-primary-200" : "border-gray-200 hover:border-primary-200 hover:bg-primary-50/40"
                   }`}
                 >
                   {sel === "contract" && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-primary-600 rounded-r" />}
+                  <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <span className="flex-1 min-w-0 text-sm text-gray-900 font-medium truncate">계약서 추출 메타데이터</span>
+                  <span className="text-xs text-gray-400 group-hover:text-primary-600 flex-shrink-0">조회</span>
+                  <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-primary-500 flex-shrink-0" />
                 </button>
               )}
               <div className="px-3 pt-2 pb-1 text-xs font-medium text-gray-400">저작물 ({localWorks.length}건)</div>
@@ -230,8 +233,8 @@ export default function DetailConsole({
                   <button
                     key={i}
                     onClick={() => selectWork(i)}
-                    className={`w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-colors relative ${
-                      active ? "bg-primary-50 border border-primary-200" : "hover:bg-gray-50 border border-transparent"
+                    className={`group w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg border transition-colors relative cursor-pointer ${
+                      active ? "bg-primary-50 border-primary-200" : "border-gray-200 hover:border-primary-200 hover:bg-primary-50/40"
                     }`}
                     title={name}
                   >
@@ -241,6 +244,7 @@ export default function DetailConsole({
                     }`}>{i + 1}</span>
                     <span className="flex-1 min-w-0 text-sm text-gray-900 font-medium truncate">{name}</span>
                     {wt && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 flex-shrink-0">{WORK_TYPE_LABELS[wt] ?? wt}</span>}
+                    <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-primary-500 flex-shrink-0" />
                   </button>
                 )
               })}
