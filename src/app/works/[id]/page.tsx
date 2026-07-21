@@ -449,7 +449,7 @@ export default function WorkDetailPage() {
             {/* 공공누리 자동분류 정보 */}
             <div className="flex items-center justify-between mb-3">
               <SectionDivider title="공공누리 자동분류 정보" />
-              {!editingType && contract.gongnuri_type && (
+              {!editingType && contract.gongnuri_type && currentUserId && contract.user_id === currentUserId && (
                 <button onClick={startEditType} className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-primary-600 border border-primary-200 rounded hover:bg-primary-50 transition-colors"><Pencil className="w-3 h-3" /> 수정</button>
               )}
             </div>
