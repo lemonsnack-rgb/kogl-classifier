@@ -206,10 +206,9 @@ export default function DetailConsole({
       <div className="flex-1 flex overflow-hidden">
         {/* 좌: 정보 + 목록 */}
         <div className="w-1/2 overflow-y-auto px-6 py-5 border-r border-gray-200 space-y-6">
-          {leftTop}
-
           <div>
-            <div className="text-[15px] font-bold text-gray-800 tracking-tight mb-3">계약서·저작물</div>
+            <div className="text-[15px] font-bold text-gray-800 tracking-tight mb-1">계약서·저작물</div>
+            <p className="text-xs text-gray-400 mb-3">선택하면 오른쪽에 상세가 열리고, [수정]에서 유형·AI 활용여부를 편집합니다</p>
             <div className="space-y-1">
               {contractMetaNode && (
                 <button
@@ -248,6 +247,8 @@ export default function DetailConsole({
             </div>
             {worksFooter && <div className="mt-3">{worksFooter}</div>}
           </div>
+
+          {leftTop}
         </div>
 
         {/* 우: 공유 상세 패널 */}
@@ -295,25 +296,28 @@ export default function DetailConsole({
               <div className="mb-4 bg-white border border-gray-200 rounded-lg border-l-4 border-l-purple-500 p-4">
                 <div className="text-xs font-bold text-gray-500 mb-2">공공누리 유형 판정</div>
                 {editing ? (
-                  <div className="flex flex-wrap items-center gap-3">
-                    <select value={typeForm} onChange={(e) => setTypeForm(e.target.value)}
-                      className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
-                      <option value="">미판정</option>
-                      {KOGL_TYPE_ORDER.map((t) => (
-                        <option key={t} value={t}>{KOGL_TYPES[t].label} · {KOGL_TYPES[t].description}</option>
-                      ))}
-                    </select>
-                    <label className={`inline-flex items-center gap-1.5 text-sm ${typeForm === "KOGL-0" ? "text-gray-300" : "text-gray-700"}`}>
-                      AI 활용
+                  <div className="space-y-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-gray-600 w-[92px] flex-shrink-0">공공누리 유형</span>
+                      <select value={typeForm} onChange={(e) => setTypeForm(e.target.value)}
+                        className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <option value="">미판정</option>
+                        {KOGL_TYPE_ORDER.map((t) => (
+                          <option key={t} value={t}>{KOGL_TYPES[t].label} · {KOGL_TYPES[t].description}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-semibold w-[92px] flex-shrink-0 ${typeForm === "KOGL-0" ? "text-gray-300" : "text-gray-600"}`}>AI 학습 활용</span>
                       <select value={typeForm === "KOGL-0" ? "unknown" : aiForm} disabled={typeForm === "KOGL-0"}
                         onChange={(e) => setAiForm(e.target.value as AiStatus)}
-                        className="border border-gray-300 rounded px-2 py-1 text-sm disabled:bg-gray-100 disabled:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm disabled:bg-gray-100 disabled:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500">
                         <option value="usable">활용 가능</option>
                         <option value="not_usable">활용 불가</option>
                         <option value="unknown">판단 불가</option>
                       </select>
-                    </label>
-                    {typeForm === "KOGL-0" && <span className="text-xs text-gray-400">제0유형은 AI유형 해당 없음</span>}
+                      {typeForm === "KOGL-0" && <span className="text-xs text-gray-400 flex-shrink-0">제0유형은 해당 없음</span>}
+                    </div>
                   </div>
                 ) : (
                   <div className="flex flex-wrap items-center gap-2">
