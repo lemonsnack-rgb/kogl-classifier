@@ -425,6 +425,17 @@ async def process_combined(
                 }
             except Exception:
                 hmc_type = None
+            # 저작물별 신유형 판정(제0유형·AI유형) 병합
+            hmc_kogl = None
+            if hmc_type and hmc_type.get("predicted_type"):
+                hmc_kogl = TYPE_MAP.get(hmc_type["predicted_type"])
+            for wrow in works_out:
+                verdict = resolve_kogl_type(wrow, hmc_kogl)
+                wrow["resolved_type"] = verdict["resolved_type"]
+                wrow["ai_type_applied"] = verdict["ai_candidate"]
+                wrow["type_reason"] = verdict["reason"]
+                wrow["type_low_confidence"] = verdict["low_confidence"]
+            upd({"contract_metadata": {"contract": contract_meta, "works": works_out}})
             rights = await _rights_predict(client, ocr_text, contract_name)
             upd({
                 "summary": rights.get("summary"),
