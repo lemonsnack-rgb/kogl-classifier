@@ -389,15 +389,32 @@ function isCombinedMeta(m: Record<string, unknown>): boolean {
   return Object.prototype.hasOwnProperty.call(m, "contract") || Object.prototype.hasOwnProperty.call(m, "works")
 }
 
-const WORK_FIELD_LABELS: [string, string][] = [
-  ["work_name", "저작물명"], ["work_type", "유형"], ["digital_format", "디지털화형태"],
-  ["description", "설명"], ["keywords", "주제어"], ["language", "언어"],
-  ["created_date", "제작일"], ["creator", "제작자"], ["copyright_holder", "저작권자"],
-  ["co_authors", "공동저작자"], ["neighboring_rights_holder", "저작인접권자"],
-  ["disclosure_type", "공개유형"], ["copyrightability", "저작물성"], ["non_protected_work", "비보호저작물"],
-  ["work_for_hire", "업무상저작물"], ["commercial_use", "상업적이용허락"], ["property_rights", "저작재산권"],
-  ["co_author_consent", "공동저작자동의"], ["validity_period", "유효기간"], ["portrait_rights", "초상권"],
+// 저작물 20항목 (검사하기 상세 WorkMetadataTable과 동일한 3범주 그룹핑 + 색상)
+const WORK_GROUPS: { title: string; color: string; fields: [string, string][] }[] = [
+  {
+    title: "저작물정보", color: "border-l-blue-500",
+    fields: [
+      ["work_name", "저작물명"], ["work_type", "유형"], ["digital_format", "디지털화형태"],
+      ["description", "설명"], ["keywords", "주제어"], ["language", "언어"],
+      ["created_date", "제작일"], ["creator", "제작자"],
+    ],
+  },
+  {
+    title: "저작자정보", color: "border-l-green-500",
+    fields: [
+      ["copyright_holder", "저작권자"], ["co_authors", "공동저작자"], ["neighboring_rights_holder", "저작인접권자"],
+    ],
+  },
+  {
+    title: "권리정보", color: "border-l-amber-500",
+    fields: [
+      ["disclosure_type", "공개유형"], ["copyrightability", "저작물성"], ["non_protected_work", "비보호저작물"],
+      ["work_for_hire", "업무상저작물"], ["commercial_use", "상업적이용허락"], ["property_rights", "저작재산권"],
+      ["co_author_consent", "공동저작자동의"], ["validity_period", "유효기간"], ["portrait_rights", "초상권"],
+    ],
+  },
 ]
+const WORK_FIELD_LABELS: [string, string][] = WORK_GROUPS.flatMap((g) => g.fields)
 
 function CombinedMetadata({ data, recordId }: { data: Record<string, unknown>; recordId?: string }) {
   const contract = (data.contract as Record<string, unknown> | null) || null
@@ -547,26 +564,41 @@ function WorksBrowser({
             )}
           </div>
         </div>
-        <div className="overflow-x-auto bg-white border border-gray-100 rounded-lg">
-          <table className="w-full text-sm">
-            <tbody>
-              {WORK_FIELD_LABELS.map(([k, label]) => (
-                <tr key={k} className="border-b border-gray-50 last:border-0">
-                  <td className="px-3 py-1.5 text-gray-500 w-[140px] align-top">{label}</td>
-                  <td className="px-3 py-1.5 text-gray-900">
-                    {editing ? (
-                      <input
-                        value={form[k] ?? ""}
-                        onChange={(e) => setForm((prev) => ({ ...prev, [k]: e.target.value }))}
-                        className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary-400"
-                        placeholder="미식별"
-                      />
-                    ) : isMeaningful(w[k]) ? <MetaValue value={w[k]} /> : <span className="text-gray-400 italic">미식별</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-4">
+          {WORK_GROUPS.map((section) => (
+            <div key={section.title} className={`bg-white border border-gray-200 rounded-lg overflow-hidden border-l-4 ${section.color}`}>
+              <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200">
+                <span className="text-sm font-bold text-gray-700">{section.title}</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 w-[140px]">항목</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500">값</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {section.fields.map(([k, label]) => (
+                      <tr key={k} className="border-b border-gray-50 last:border-0 hover:bg-gray-50">
+                        <td className="px-4 py-2 text-sm text-gray-500 font-medium align-top">{label}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900">
+                          {editing ? (
+                            <input
+                              value={form[k] ?? ""}
+                              onChange={(e) => setForm((prev) => ({ ...prev, [k]: e.target.value }))}
+                              className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                              placeholder="미식별"
+                            />
+                          ) : isMeaningful(w[k]) ? <MetaValue value={w[k]} /> : <span className="text-gray-400 italic">미식별</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
