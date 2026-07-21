@@ -6,6 +6,7 @@ import Link from "next/link"
 import AppLayout from "@/components/layout/AppLayout"
 import { getContractById } from "@/lib/mock/data"
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client"
+import DetailConsole from "@/components/detail/DetailConsole"
 import type { Contract } from "@/types"
 import { KOGL_TYPES, STATUS_META } from "@/types"
 import type { KoglType, ContractStatus, ClauseType, Work } from "@/types"
@@ -351,523 +352,162 @@ export default function WorkDetailPage() {
     setShowMetaDetail(false)
   }
 
+  // 저작물: works 테이블 행 + contract_metadata(JSONB)를 병합해 20필드 모두 노출
+  const consoleWorks: Record<string, unknown>[] = works.map((wk) => {
+    const rec = wk as unknown as Record<string, unknown>
+    const meta = (rec.contract_metadata as Record<string, unknown> | null) || {}
+    return { ...meta, ...rec }
+  })
+
+  async function saveWork(index: number, patch: Record<string, unknown>) {
+    const work = works[index]
+    if (!work) return
+    const wtRaw = patch.work_type
+    const wt = typeof wtRaw === "string" && ["image", "text", "audio", "video"].includes(wtRaw) ? wtRaw : null
+    const cdRaw = typeof patch.created_date === "string" ? patch.created_date.trim() : ""
+    const validCd = /^\d{4}-\d{2}-\d{2}$/.test(cdRaw) ? cdRaw : null
+    const kw = patch.keywords
+    const prevMeta = (work as unknown as { contract_metadata?: Record<string, unknown> | null }).contract_metadata || {}
+    const mergedMeta = { ...prevMeta, ...patch }
+    const dbPayload: Record<string, unknown> = {
+      work_name: (patch.work_name as string | null) || null,
+      work_type: wt,
+      digital_format: (patch.digital_format as string | null) || null,
+      description: (patch.description as string | null) || null,
+      keywords: Array.isArray(kw) ? kw : null,
+      language: (patch.language as string | null) || null,
+      created_date: validCd,
+      creator: (patch.creator as string | null) || null,
+      resolved_type: (patch.resolved_type as string | null) ?? null,
+      ai_type_applied: (patch.ai_type_applied as boolean | null) ?? null,
+      contract_metadata: mergedMeta,
+    }
+    if (isSupabaseConfigured()) {
+      const supabase = createClient()
+      const { error } = await supabase.from("works").update(dbPayload).eq("id", work.id)
+      if (error) throw new Error(error.message)
+    }
+    setContract((prev) =>
+      prev ? { ...prev, works: (prev.works ?? []).map((x) => (x.id === work.id ? { ...x, ...dbPayload } : x)) } : prev
+    )
+  }
+
   return (
     <AppLayout>
-      <div className="flex flex-col h-[calc(100vh-24px)]">
-        {/* ====== 상단: 검사명 (최상위 위계) ====== */}
-        <div className="flex-shrink-0 bg-white border-b border-gray-200 px-6 py-4">
-          <Link
-            href="/works"
-            className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            검사하기 목록
-          </Link>
-          <div className="flex items-center gap-2.5">
-            <span className="flex-shrink-0 w-9 h-9 rounded-lg bg-primary-50 flex items-center justify-center">
-              <FileText className="w-5 h-5 text-primary-600" />
-            </span>
-            <h1 className="text-xl font-bold text-gray-900 tracking-tight leading-tight">
-              {contract.inspection_title ??
-                contract.contract_filename ??
-                "검사 결과"}
-            </h1>
-          </div>
-        </div>
-
-        {/* ====== 하단: 좌우 2단 ====== */}
-        <div className="flex flex-1 min-h-0">
-        {/* ====== 좌측 패널 ====== */}
-        <div className="w-1/2 flex-shrink-0 overflow-y-auto border-r border-gray-200 bg-white px-6 py-5">
-
-          {/* ── 계약서 정보 섹션 ── */}
-          <SectionDivider title="계약서 기본정보" />
-          <div className="space-y-2.5 mb-6">
-            <LeftField
-              label="파일명"
-              value={
-                contract.contract_filename ? (
+      <DetailConsole
+        title={contract.inspection_title ?? contract.contract_filename ?? "검사 결과"}
+        backHref="/works"
+        backLabel="검사하기 목록"
+        leftTop={
+          <div>
+            {/* 계약서 기본정보 */}
+            <SectionDivider title="계약서 기본정보" />
+            <div className="space-y-2.5 mb-6">
+              <LeftField
+                label="파일명"
+                value={contract.contract_filename ? (
                   <span className="inline-flex items-center gap-1.5">
-                    <span className="truncate max-w-[220px]">
-                      {contract.contract_filename}
-                    </span>
-                    <button
-                      onClick={handleFileDownload}
-                      className="text-gray-400 hover:text-primary-600 transition-colors flex-shrink-0"
-                      title="다운로드"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                    </button>
+                    <span className="truncate max-w-[220px]">{contract.contract_filename}</span>
+                    <button onClick={handleFileDownload} className="text-gray-400 hover:text-primary-600 transition-colors flex-shrink-0" title="다운로드"><Download className="w-3.5 h-3.5" /></button>
                   </span>
-                ) : (
-                  <EmptyValue />
-                )
-              }
-            />
-            <LeftField
-              label="등록일"
-              value={formatDate(contract.created_at)}
-            />
-            <LeftField label="등록자" value={
-              contract.profile
-                ? `${contract.profile.organization || ""} ${contract.profile.name || ""}`.trim() || contract.user_id
-                : contract.user_id
-            } />
-            <LeftField
-              label="상태"
-              value={<StatusBadge status={contract.status} />}
-            />
-            <LeftField
-              label="자체제작 여부"
-              value={contract.is_institution_made ? "자체 제작" : "외부 위탁"}
-            />
-          </div>
-
-          {/* 섹션 구분선 */}
-          <div className="border-t border-gray-200 my-5" />
-
-          {/* ── 공공누리 유형 분류 결과 섹션 ── */}
-          <div className="flex items-center justify-between mb-3">
-            <SectionDivider title="공공누리 자동분류 정보" />
-            {!editingType && contract.gongnuri_type && (
-              <button
-                onClick={startEditType}
-                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-primary-600 border border-primary-200 rounded hover:bg-primary-50 transition-colors"
-              >
-                <Pencil className="w-3 h-3" />
-                수정
-              </button>
-            )}
-          </div>
-
-          {editingType ? (
-            /* 인라인 수정 모드 */
-            <div className="mb-6 space-y-3">
-              <div>
-                <label className="text-xs text-gray-400 block mb-1">
-                  유형 선택
-                </label>
-                <select
-                  value={editTypeValue}
-                  onChange={(e) =>
-                    setEditTypeValue(e.target.value as KoglType | "")
-                  }
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                >
-                  <option value="">선택하세요</option>
-                  {(
-                    Object.keys(KOGL_TYPES) as KoglType[]
-                  ).map((k) => (
-                    <option key={k} value={k}>
-                      {KOGL_TYPES[k].label} - {KOGL_TYPES[k].description}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-gray-400 block mb-1">
-                  수정 사유
-                </label>
-                <textarea
-                  value={editTypeReason}
-                  onChange={(e) => setEditTypeReason(e.target.value)}
-                  rows={3}
-                  placeholder="수정 사유를 입력하세요"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
-                />
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={saveEditType}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 transition-colors"
-                >
-                  <Save className="w-3 h-3" />
-                  저장
-                </button>
-                <button
-                  onClick={cancelEditType}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                >
-                  <X className="w-3 h-3" />
-                  취소
-                </button>
-              </div>
+                ) : <EmptyValue />}
+              />
+              <LeftField label="등록일" value={formatDate(contract.created_at)} />
+              <LeftField label="등록자" value={contract.profile ? `${contract.profile.organization || ""} ${contract.profile.name || ""}`.trim() || contract.user_id : contract.user_id} />
+              <LeftField label="상태" value={<StatusBadge status={contract.status} />} />
+              <LeftField label="자체제작 여부" value={contract.is_institution_made ? "자체 제작" : "외부 위탁"} />
             </div>
-          ) : contract.gongnuri_type ? (
-            <div className="mb-6">
-              {/* KOGL 이미지 + 유형 */}
-              <div className="flex items-center gap-4 mb-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={getKoglImageSrc(contract.gongnuri_type)}
-                  alt={`공공누리 ${KOGL_TYPES[contract.gongnuri_type].label}`}
-                  className="h-[72px] w-auto object-contain rounded flex-shrink-0"
-                />
-                <div className="flex items-center gap-3">
-                  <KoglBadge type={contract.gongnuri_type} />
-                  <span className="text-base text-gray-600">
-                    {KOGL_TYPES[contract.gongnuri_type].description}
-                  </span>
-                </div>
-              </div>
-
-              {/* 분류 정확도 */}
-              <div className="mb-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm text-gray-500">분류 정확도</span>
-                  <span className="text-sm font-semibold text-gray-700 tabular-nums">
-                    {((contract.gongnuri_confidence ?? 0) * 100).toFixed(1)}%
-                  </span>
-                </div>
-                <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width: `${(contract.gongnuri_confidence ?? 0) * 100}%`,
-                      backgroundColor:
-                        KOGL_TYPES[contract.gongnuri_type].color,
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* 판단 근거 (필수) */}
-              <div>
-                <div className="flex items-center gap-1.5 mb-2">
-                  <FileText className="w-4 h-4 text-gray-500" />
-                  <span className="text-sm text-gray-500 font-medium">자동분류 근거 내용</span>
-                </div>
-              {clauses.length > 0 ? (
-                  <div className="space-y-2">
-                    {clauses.map((clause) => (
-                      <div
-                        key={clause.id}
-                        className="border border-gray-100 rounded-lg p-3"
-                      >
-                        <div className="mb-1.5">
-                          <span className="inline-flex items-center px-2.5 py-1 rounded text-sm font-medium bg-primary-50 text-primary-700">
-                            {CLAUSE_TYPE_LABELS[clause.clause_type] ??
-                              clause.clause_type}
-                          </span>
-                        </div>
-                        <blockquote className="border-l-3 border-accent-500 bg-accent-50 pl-3 py-2 text-sm italic text-gray-700 leading-relaxed">
-                          &ldquo;{clause.clause_text}&rdquo;
-                        </blockquote>
-                      </div>
-                    ))}
-                  </div>
-              ) : (
-                <div className="border border-amber-200 bg-amber-50 rounded-lg p-3">
-                  <p className="text-xs text-amber-700 font-medium">
-                    자동분류 근거 내용이 아직 추출되지 않았습니다. 근거 문구는 필수 항목입니다.
-                  </p>
-                </div>
+            <div className="border-t border-gray-200 my-5" />
+            {/* 공공누리 자동분류 정보 */}
+            <div className="flex items-center justify-between mb-3">
+              <SectionDivider title="공공누리 자동분류 정보" />
+              {!editingType && contract.gongnuri_type && (
+                <button onClick={startEditType} className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-primary-600 border border-primary-200 rounded hover:bg-primary-50 transition-colors"><Pencil className="w-3 h-3" /> 수정</button>
               )}
-              </div>
             </div>
-          ) : (
-            <p className="text-sm text-gray-300 italic mb-6">
-              분류 결과 없음
-            </p>
-          )}
-
-          {/* 섹션 구분선 */}
-          <div className="border-t border-gray-200 my-5" />
-
-          {/* ── 계약서 추출 메타데이터 (요약) ── */}
-          {contract.contract_metadata && (
-            <>
-              <SectionDivider title="계약서 추출 메타데이터" />
-              <div className="space-y-2 mb-3">
-                <MetaSummary data={contract.contract_metadata} />
-              </div>
-              <button
-                onClick={() => {
-                  setShowMetaDetail(true)
-                  setSelectedWorkIdx(null)
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary-600 border border-primary-200 rounded-md hover:bg-primary-50 transition-colors mb-6"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                상세 보기
-              </button>
-              <div className="border-t border-gray-200 my-5" />
-            </>
-          )}
-
-          {/* ── 저작물 목록 섹션 ── */}
-          <SectionDivider title={`저작물 목록 (${works.length}건)`} />
-          {works.length === 0 ? (
-            <p className="text-sm text-gray-300 italic">
-              등록된 저작물이 없습니다.
-            </p>
-          ) : (
-            <div className="space-y-1 mb-6">
-              {works.map((work, idx) => {
-                const isSelected = selectedWorkIdx === idx
-                return (
-                  <button
-                    key={work.id}
-                    onClick={() => handleSelectWork(idx)}
-                    className={`w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-colors relative ${
-                      isSelected
-                        ? "bg-primary-50 border border-primary-200"
-                        : "hover:bg-gray-50 border border-transparent"
-                    }`}
-                  >
-                    {isSelected && (
-                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-primary-600 rounded-r" />
-                    )}
-                    <span
-                      className={`inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold flex-shrink-0 ${
-                        isSelected
-                          ? "bg-primary-600 text-white"
-                          : "bg-gray-200 text-gray-600"
-                      }`}
-                    >
-                      {idx + 1}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-900 font-medium truncate">
-                        {work.work_name ?? work.work_filename}
-                      </p>
-                    </div>
-                    {work.work_type && (
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 flex-shrink-0">
-                        {WORK_TYPE_LABELS[work.work_type] ?? work.work_type}
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-
-          {/* 엑셀 다운로드 */}
-          <button
-            onClick={() =>
-              downloadCsv(works, contract.contract_filename)
-            }
-            className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            엑셀 다운로드
-          </button>
-        </div>
-
-        {/* ====== 우측 패널 ====== */}
-        <div className="w-1/2 overflow-y-auto bg-gray-50 px-8 py-5">
-          {showMetaDetail && contract.contract_metadata ? (
-            /* ── 계약서 메타데이터 상세 모드 ── */
-            <div>
-              <div className="flex items-center justify-between mb-5">
-                <SectionDivider title="계약서 추출 메타데이터 상세" />
+            {editingType ? (
+              <div className="mb-6 space-y-3">
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">유형 선택</label>
+                  <select value={editTypeValue} onChange={(e) => setEditTypeValue(e.target.value as KoglType | "")} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    <option value="">선택하세요</option>
+                    {(Object.keys(KOGL_TYPES) as KoglType[]).map((k) => (<option key={k} value={k}>{KOGL_TYPES[k].label} - {KOGL_TYPES[k].description}</option>))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">수정 사유</label>
+                  <textarea value={editTypeReason} onChange={(e) => setEditTypeReason(e.target.value)} rows={3} placeholder="수정 사유를 입력하세요" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none" />
+                </div>
                 <div className="flex gap-2">
-                  {!editingContractMeta ? (
-                    <>
-                      <button
-                        onClick={() => {
-                          const flat = flattenJson(contract.contract_metadata!)
-                          setContractMetaForm(flat)
-                          setEditingContractMeta(true)
-                        }}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-primary-600 border border-primary-200 rounded-md hover:bg-primary-50 transition-colors"
-                      >
-                        <Pencil className="w-3 h-3" />
-                        수정
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowMetaDetail(false)
-                          setEditingContractMeta(false)
-                        }}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                      >
-                        <X className="w-3 h-3" />
-                        닫기
-                      </button>
-                    </>
+                  <button onClick={saveEditType} className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 transition-colors"><Save className="w-3 h-3" /> 저장</button>
+                  <button onClick={cancelEditType} className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"><X className="w-3 h-3" /> 취소</button>
+                </div>
+              </div>
+            ) : contract.gongnuri_type ? (
+              <div className="mb-6">
+                <div className="flex items-center gap-4 mb-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={getKoglImageSrc(contract.gongnuri_type)} alt={`공공누리 ${KOGL_TYPES[contract.gongnuri_type].label}`} className="h-[72px] w-auto object-contain rounded flex-shrink-0" />
+                  <div className="flex items-center gap-3">
+                    <KoglBadge type={contract.gongnuri_type} />
+                    <span className="text-base text-gray-600">{KOGL_TYPES[contract.gongnuri_type].description}</span>
+                  </div>
+                </div>
+                <div className="mb-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-gray-500">분류 정확도</span>
+                    <span className="text-sm font-semibold text-gray-700 tabular-nums">{((contract.gongnuri_confidence ?? 0) * 100).toFixed(1)}%</span>
+                  </div>
+                  <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${(contract.gongnuri_confidence ?? 0) * 100}%`, backgroundColor: KOGL_TYPES[contract.gongnuri_type].color }} />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5 mb-2"><FileText className="w-4 h-4 text-gray-500" /><span className="text-sm text-gray-500 font-medium">자동분류 근거 내용</span></div>
+                  {clauses.length > 0 ? (
+                    <div className="space-y-2">
+                      {clauses.map((clause) => (
+                        <div key={clause.id} className="border border-gray-100 rounded-lg p-3">
+                          <div className="mb-1.5"><span className="inline-flex items-center px-2.5 py-1 rounded text-sm font-medium bg-primary-50 text-primary-700">{CLAUSE_TYPE_LABELS[clause.clause_type] ?? clause.clause_type}</span></div>
+                          <blockquote className="border-l-3 border-accent-500 bg-accent-50 pl-3 py-2 text-sm italic text-gray-700 leading-relaxed">&ldquo;{clause.clause_text}&rdquo;</blockquote>
+                        </div>
+                      ))}
+                    </div>
                   ) : (
-                    <>
-                      <button
-                        onClick={() => {
-                          alert("메타데이터가 저장되었습니다")
-                          setEditingContractMeta(false)
-                        }}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 transition-colors"
-                      >
-                        <Save className="w-3 h-3" />
-                        저장
-                      </button>
-                      <button
-                        onClick={() => {
-                          setEditingContractMeta(false)
-                          setContractMetaForm({})
-                        }}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                      >
-                        <X className="w-3 h-3" />
-                        취소
-                      </button>
-                    </>
+                    <div className="border border-amber-200 bg-amber-50 rounded-lg p-3"><p className="text-xs text-amber-700 font-medium">자동분류 근거 내용이 아직 추출되지 않았습니다. 근거 문구는 필수 항목입니다.</p></div>
                   )}
                 </div>
               </div>
-              <MetadataTable
-                data={contract.contract_metadata}
-                editing={editingContractMeta}
-                form={contractMetaForm}
-                onChange={(key, value) => setContractMetaForm(prev => ({ ...prev, [key]: value }))}
-              />
-            </div>
-          ) : selectedWork === null ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
-                  <FileText className="w-7 h-7 text-gray-300" />
-                </div>
-                <p className="text-sm text-gray-400">
-                  좌측에서 저작물을 선택하세요
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div>
-              {/* 영역 제목: 저작물 메타데이터 - 좌측 섹션과 동일 위계 */}
-              <SectionDivider title="저작물 메타데이터" />
-
-              {/* 선택된 저작물 + 수정/취소 버튼 */}
-              <div className="flex items-center justify-between mb-5">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-primary-600 text-white text-xs font-bold">
-                    {(selectedWorkIdx ?? 0) + 1}
-                  </span>
-                  <h3 className="text-sm font-semibold text-gray-800">
-                    {selectedWork.work_name ?? selectedWork.work_filename}
-                  </h3>
-                </div>
-                {!editingMeta ? (
-                  <div className="flex gap-2">
-                    {selectedWork.work_file_url && (
-                      <button
-                        onClick={() => {
-                          const url = selectedWork.work_file_url
-                          if (!url || url.startsWith("/mock")) {
-                            alert("Mock 데이터는 미리보기를 지원하지 않습니다.")
-                            return
-                          }
-                          window.open(url, "_blank")
-                        }}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        미리보기
-                      </button>
-                    )}
-                    <button
-                      onClick={startEditMeta}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-primary-600 border border-primary-200 rounded-md hover:bg-primary-50 transition-colors"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                      수정
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={saveEditMeta}
-                      disabled={savingMeta}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:bg-primary-300 transition-colors"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                      {savingMeta ? "저장중…" : "저장"}
-                    </button>
-                    <button
-                      onClick={cancelEditMeta}
-                      disabled={savingMeta}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                      취소
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* 공공누리 유형 판정: 확정 유형 + AI유형 + 근거 (수정 시 드롭다운·체크박스) */}
-              <div className="mb-5 bg-white border border-gray-200 rounded-lg border-l-4 border-l-purple-500 p-4">
-                <div className="text-xs font-bold text-gray-500 mb-2">공공누리 유형 판정</div>
-                {editingMeta ? (
-                  <div className="flex flex-wrap items-center gap-3">
-                    <select
-                      value={editWorkType}
-                      onChange={(e) => setEditWorkType(e.target.value as KoglType | "")}
-                      className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    >
-                      <option value="">미판정</option>
-                      {(Object.keys(KOGL_TYPES) as KoglType[]).map((t) => (
-                        <option key={t} value={t}>{KOGL_TYPES[t].label} · {KOGL_TYPES[t].description}</option>
-                      ))}
-                    </select>
-                    <label className={`inline-flex items-center gap-1.5 text-sm ${editWorkType === "KOGL-0" ? "text-gray-300" : "text-gray-700"}`}>
-                      AI 활용
-                      <select
-                        value={editWorkType === "KOGL-0" ? "unknown" : editWorkAi}
-                        disabled={editWorkType === "KOGL-0"}
-                        onChange={(e) => setEditWorkAi(e.target.value as "usable" | "not_usable" | "unknown")}
-                        className="border border-gray-300 rounded px-2 py-1 text-sm disabled:bg-gray-100 disabled:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      >
-                        <option value="usable">활용 가능</option>
-                        <option value="not_usable">활용 불가</option>
-                        <option value="unknown">판단 불가</option>
-                      </select>
-                    </label>
-                    {editWorkType === "KOGL-0" && <span className="text-xs text-gray-400">제0유형은 AI유형 해당 없음</span>}
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap items-center gap-2">
-                    {selectedWork.resolved_type && selectedWork.resolved_type in KOGL_TYPES ? (
-                      <span
-                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold text-white"
-                        style={{ backgroundColor: KOGL_TYPES[selectedWork.resolved_type as KoglType].color }}
-                      >
-                        {KOGL_TYPES[selectedWork.resolved_type as KoglType].label} · {KOGL_TYPES[selectedWork.resolved_type as KoglType].description}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-gray-400 italic">유형 미판정</span>
-                    )}
-                    {selectedWork.resolved_type &&
-                      selectedWork.resolved_type in KOGL_TYPES &&
-                      selectedWork.resolved_type !== "KOGL-0" &&
-                      (selectedWork.ai_type_applied === true ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border border-indigo-300 text-indigo-700 bg-indigo-50">AI 활용 가능</span>
-                      ) : selectedWork.ai_type_applied === false ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border border-rose-200 text-rose-600 bg-rose-50">AI 활용 불가</span>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border border-gray-200 text-gray-400 bg-gray-50">AI 판단 불가</span>
-                      ))}
-                    {selectedWork.type_low_confidence === true && (
-                      <span className="text-xs text-amber-600 font-medium">⚠ 자동 추정 · 확인 권장</span>
-                    )}
-                    {selectedWork.type_reason && (
-                      <span className="text-xs text-gray-500">· {selectedWork.type_reason}</span>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <WorkMetadataTable
-                work={selectedWork}
-                contractFilename={contract.contract_filename}
-                editing={editingMeta}
-                form={metaForm}
-                onChange={(key, value) => setMetaForm((p) => ({ ...p, [key]: value }))}
-              />
-            </div>
-          )}
-        </div>
-        </div>
-      </div>
+            ) : (
+              <p className="text-sm text-gray-300 italic mb-6">분류 결과 없음</p>
+            )}
+          </div>
+        }
+        contractMetaNode={contract.contract_metadata ? (
+          <MetadataTable data={contract.contract_metadata as unknown as Record<string, unknown>} editing={false} form={{}} onChange={() => {}} />
+        ) : (
+          <p className="text-sm text-gray-400">추출된 계약서 메타데이터가 없습니다.</p>
+        )}
+        works={consoleWorks}
+        onSaveWork={saveWork}
+        worksFooter={
+          <button onClick={() => downloadCsv(works, contract.contract_filename)} className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            <Download className="w-4 h-4" /> 엑셀 다운로드
+          </button>
+        }
+        workActions={(wk) => {
+          const url = wk.work_file_url as string | null | undefined
+          if (!url) return null
+          return (
+            <button
+              onClick={() => { if (!url || url.startsWith("/mock")) { alert("Mock 데이터는 미리보기를 지원하지 않습니다."); return } window.open(url, "_blank") }}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+            >
+              <Eye className="w-3 h-3" /> 미리보기
+            </button>
+          )
+        }}
+      />
     </AppLayout>
   )
 }

@@ -133,10 +133,12 @@ export interface DetailConsoleProps {
   onSaveWork?: (index: number, patch: Record<string, unknown>, nextWorks: Record<string, unknown>[]) => Promise<void>
   /** 저작물 목록 하단 부가 노드(엑셀 다운로드 등) */
   worksFooter?: React.ReactNode
+  /** 저작물 우측 패널 헤더의 저작물별 액션(미리보기 등) */
+  workActions?: (work: Record<string, unknown>, index: number) => React.ReactNode
 }
 
 export default function DetailConsole({
-  title, backHref, backLabel, leftTop, contractMetaNode, works, onSaveWork, worksFooter,
+  title, backHref, backLabel, leftTop, contractMetaNode, works, onSaveWork, worksFooter, workActions,
 }: DetailConsoleProps) {
   const [localWorks, setLocalWorks] = useState(works)
   const [sel, setSel] = useState<"contract" | number | null>(null)
@@ -268,6 +270,7 @@ export default function DetailConsole({
                 </div>
                 <div className="flex items-center gap-2">
                   {savedMsg && <span className="text-xs text-green-600 font-medium">✓ 저장됨</span>}
+                  {!editing && workActions && workActions(w, sel as number)}
                   {onSaveWork && (!editing ? (
                     <button onClick={startEdit}
                       className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-primary-600 border border-primary-200 rounded-md hover:bg-primary-50 transition-colors">
