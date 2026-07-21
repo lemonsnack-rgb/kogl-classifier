@@ -95,6 +95,15 @@ def _is_true(v) -> bool:
     return any(t in s for t in _TRUE_TOKENS)
 
 
+def _is_false(v) -> bool:
+    if v is None:
+        return False
+    s = str(v).strip().lower()
+    if not s:
+        return False
+    return any(t in s for t in _FALSE_TOKENS)
+
+
 def _is_expired(v) -> bool:
     if v is None:
         return False
@@ -111,7 +120,8 @@ def resolve_kogl_type(work_meta: dict, hmc_type):
 
     hmc_valid = hmc_type if hmc_type in ("KOGL-1", "KOGL-2", "KOGL-3", "KOGL-4") else None
     resolved = hmc_valid
-    ai_candidate = False
+    # AI유형 3단계: True=활용가능, False=활용불가, None=판단불가(신호 없음).
+    ai_candidate = None
     reason = None
     low_confidence = False
 
@@ -126,11 +136,17 @@ def resolve_kogl_type(work_meta: dict, hmc_type):
             reason = "유형 신호 부족(계약서 판정 없음)"
         else:
             reason = "계약 기반 유형(상업·변경 축)"
+        # 권리자 동의 신호로 AI 활용 가능/불가/판단불가 결정
         if _is_true(consent):
             ai_candidate = True
+        elif _is_false(consent):
+            ai_candidate = False
+        else:
+            ai_candidate = None
 
     if resolved == "KOGL-0":
-        ai_candidate = False
+        # 제0유형(자유이용)은 AI 활용 여부 N/A
+        ai_candidate = None
 
     # 유형이 정해지지 않았거나(미판정) 판정 근거 신호가 전혀 없으면 "확인 권장".
     if resolved is None or not (

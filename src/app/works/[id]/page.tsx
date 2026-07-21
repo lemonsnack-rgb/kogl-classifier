@@ -202,7 +202,7 @@ export default function WorkDetailPage() {
   const [metaForm, setMetaForm] = useState<Record<string, string>>({})
   // 저작물별 신유형 판정 수정 상태
   const [editWorkType, setEditWorkType] = useState<KoglType | "">("")
-  const [editWorkAi, setEditWorkAi] = useState<boolean>(false)
+  const [editWorkAi, setEditWorkAi] = useState<"usable" | "not_usable" | "unknown">("unknown")
   const [savingMeta, setSavingMeta] = useState(false)
 
   if (loading || contract === undefined) {
@@ -274,7 +274,13 @@ export default function WorkDetailPage() {
         ? (selectedWork.resolved_type as KoglType)
         : ""
     )
-    setEditWorkAi(selectedWork.ai_type_applied === true)
+    setEditWorkAi(
+      selectedWork.ai_type_applied === true
+        ? "usable"
+        : selectedWork.ai_type_applied === false
+        ? "not_usable"
+        : "unknown"
+    )
     setEditingMeta(true)
   }
 
@@ -304,7 +310,14 @@ export default function WorkDetailPage() {
       usage_scope: (metaForm.usage_scope ?? "").trim() || null,
       // 신유형 판정: 유형(제0~4) + AI유형(제0이면 항상 N/A=false)
       resolved_type: editWorkType || null,
-      ai_type_applied: editWorkType === "KOGL-0" ? false : editWorkAi,
+      ai_type_applied:
+        editWorkType === "KOGL-0"
+          ? null
+          : editWorkAi === "usable"
+          ? true
+          : editWorkAi === "not_usable"
+          ? false
+          : null,
     }
     setSavingMeta(true)
     try {
@@ -797,31 +810,42 @@ export default function WorkDetailPage() {
                       ))}
                     </select>
                     <label className={`inline-flex items-center gap-1.5 text-sm ${editWorkType === "KOGL-0" ? "text-gray-300" : "text-gray-700"}`}>
-                      <input
-                        type="checkbox"
-                        checked={editWorkType === "KOGL-0" ? false : editWorkAi}
+                      AI 활용
+                      <select
+                        value={editWorkType === "KOGL-0" ? "unknown" : editWorkAi}
                         disabled={editWorkType === "KOGL-0"}
-                        onChange={(e) => setEditWorkAi(e.target.checked)}
-                        className="rounded border-gray-300"
-                      />
-                      AI유형 해당
+                        onChange={(e) => setEditWorkAi(e.target.value as "usable" | "not_usable" | "unknown")}
+                        className="border border-gray-300 rounded px-2 py-1 text-sm disabled:bg-gray-100 disabled:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      >
+                        <option value="usable">활용 가능</option>
+                        <option value="not_usable">활용 불가</option>
+                        <option value="unknown">판단 불가</option>
+                      </select>
                     </label>
                     {editWorkType === "KOGL-0" && <span className="text-xs text-gray-400">제0유형은 AI유형 해당 없음</span>}
                   </div>
                 ) : (
                   <div className="flex flex-wrap items-center gap-2">
                     {selectedWork.resolved_type && selectedWork.resolved_type in KOGL_TYPES ? (
-                      <KoglBadge type={selectedWork.resolved_type as KoglType} />
+                      <span
+                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold text-white"
+                        style={{ backgroundColor: KOGL_TYPES[selectedWork.resolved_type as KoglType].color }}
+                      >
+                        {KOGL_TYPES[selectedWork.resolved_type as KoglType].label} · {KOGL_TYPES[selectedWork.resolved_type as KoglType].description}
+                      </span>
                     ) : (
                       <span className="text-xs text-gray-400 italic">유형 미판정</span>
                     )}
                     {selectedWork.resolved_type &&
+                      selectedWork.resolved_type in KOGL_TYPES &&
                       selectedWork.resolved_type !== "KOGL-0" &&
-                      selectedWork.ai_type_applied === true && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border border-indigo-300 text-indigo-700 bg-indigo-50">
-                          AI 학습 가능
-                        </span>
-                      )}
+                      (selectedWork.ai_type_applied === true ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border border-indigo-300 text-indigo-700 bg-indigo-50">AI 활용 가능</span>
+                      ) : selectedWork.ai_type_applied === false ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border border-rose-200 text-rose-600 bg-rose-50">AI 활용 불가</span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border border-gray-200 text-gray-400 bg-gray-50">AI 판단 불가</span>
+                      ))}
                     {selectedWork.type_low_confidence === true && (
                       <span className="text-xs text-amber-600 font-medium">⚠ 자동 추정 · 확인 권장</span>
                     )}

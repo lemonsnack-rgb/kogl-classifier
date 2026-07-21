@@ -5,7 +5,7 @@ from main import resolve_kogl_type
 def test_work_for_hire_no_portrait_is_type0():
     r = resolve_kogl_type({"work_for_hire": "예", "portrait_rights": "없음"}, "KOGL-1")
     assert r["resolved_type"] == "KOGL-0"
-    assert r["ai_candidate"] is False
+    assert r["ai_candidate"] is None  # 제0유형은 AI N/A
     assert "업무상저작물" in r["reason"]
 
 def test_work_for_hire_with_portrait_keeps_hmc():
@@ -28,7 +28,15 @@ def test_other_with_consent_sets_ai_candidate():
 def test_type0_never_ai_candidate():
     r = resolve_kogl_type({"non_protected_work": "예", "co_author_consent": "동의함"}, "KOGL-1")
     assert r["resolved_type"] == "KOGL-0"
-    assert r["ai_candidate"] is False
+    assert r["ai_candidate"] is None  # 제0유형은 AI N/A(판단불가로 표기)
+
+def test_ai_three_states():
+    # 동의 → 활용 가능(True)
+    assert resolve_kogl_type({"co_author_consent": "동의함"}, "KOGL-2")["ai_candidate"] is True
+    # 미동의 → 활용 불가(False)
+    assert resolve_kogl_type({"co_author_consent": "미동의"}, "KOGL-2")["ai_candidate"] is False
+    # 신호 없음 → 판단 불가(None)
+    assert resolve_kogl_type({}, "KOGL-2")["ai_candidate"] is None
 
 def test_all_empty_low_confidence():
     r = resolve_kogl_type({}, None)
