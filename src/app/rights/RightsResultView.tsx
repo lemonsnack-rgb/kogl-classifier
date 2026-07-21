@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import { Pencil, Save, X } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 import type {
   RightsPredictResponse, RightsResultItem, RightsEvidenceItem, RightsStatus,
 } from "@/lib/api/rights-types"
@@ -35,7 +37,7 @@ interface HmcType {
 }
 
 export default function RightsResultView({
-  data, ocrText, showType = true, showHighlight = true, metadata, hmcType,
+  data, ocrText, showType = true, showHighlight = true, metadata, hmcType, recordId,
 }: {
   data: RightsPredictResponse
   ocrText?: string | null
@@ -43,6 +45,7 @@ export default function RightsResultView({
   showHighlight?: boolean
   metadata?: Record<string, unknown> | null
   hmcType?: HmcType | null
+  recordId?: string
 }) {
   const grouped = GROUP_ORDER.map((g) => ({
     group: g,
@@ -57,7 +60,7 @@ export default function RightsResultView({
     <div className="space-y-6">
       {/* 저작물/문서 메타데이터 */}
       {metadata && (isCombinedMeta(metadata) ? (
-        <CombinedMetadata data={metadata} />
+        <CombinedMetadata data={metadata} recordId={recordId} />
       ) : hasAnyValue(metadata) ? (
         <div className="bg-white border border-gray-200 rounded-lg p-5">
           <h3 className="text-[15px] font-bold text-gray-800 tracking-tight mb-3">저작물 메타데이터</h3>
@@ -396,7 +399,7 @@ const WORK_FIELD_LABELS: [string, string][] = [
   ["co_author_consent", "공동저작자동의"], ["validity_period", "유효기간"], ["portrait_rights", "초상권"],
 ]
 
-function CombinedMetadata({ data }: { data: Record<string, unknown> }) {
+function CombinedMetadata({ data, recordId }: { data: Record<string, unknown>; recordId?: string }) {
   const contract = (data.contract as Record<string, unknown> | null) || null
   const works = (data.works as Record<string, unknown>[] | undefined) || []
   return (
@@ -415,7 +418,7 @@ function CombinedMetadata({ data }: { data: Record<string, unknown> }) {
         {works.length === 0 ? (
           <p className="text-sm text-gray-400">업로드된 저작물이 없습니다.</p>
         ) : (
-          <WorksBrowser works={works} />
+          <WorksBrowser works={works} contract={contract} recordId={recordId} />
         )}
       </div>
     </div>
@@ -425,22 +428,82 @@ function CombinedMetadata({ data }: { data: Record<string, unknown> }) {
 /* ── 저작물 목록 + 선택 조회 (검사하기 상세 디자인과 동기화) ── */
 const WORK_TYPE_LABELS: Record<string, string> = { image: "이미지", text: "텍스트", audio: "오디오", video: "영상" }
 
-function WorksBrowser({ works }: { works: Record<string, unknown>[] }) {
+function WorksBrowser({
+  works, contract, recordId,
+}: {
+  works: Record<string, unknown>[]
+  contract?: Record<string, unknown> | null
+  recordId?: string
+}) {
+  const [localWorks, setLocalWorks] = useState(works)
   const [selected, setSelected] = useState(0)
-  const w = works[selected] ?? works[0]
+  const [editing, setEditing] = useState(false)
+  const [form, setForm] = useState<Record<string, string>>({})
+  const [saving, setSaving] = useState(false)
+  const [savedMsg, setSavedMsg] = useState(false)
+
+  const w = localWorks[selected] ?? localWorks[0]
   const selName = String(w.work_filename || `저작물 ${selected + 1}`)
+
+  function toStr(v: unknown): string {
+    if (v === null || v === undefined) return ""
+    if (Array.isArray(v)) return v.map((x) => (typeof x === "object" ? JSON.stringify(x) : String(x))).join(", ")
+    if (typeof v === "object") return JSON.stringify(v)
+    return String(v)
+  }
+
+  function startEdit() {
+    const f: Record<string, string> = {}
+    for (const [k] of WORK_FIELD_LABELS) f[k] = toStr(w[k])
+    setForm(f)
+    setEditing(true)
+    setSavedMsg(false)
+  }
+  function cancelEdit() { setEditing(false); setForm({}) }
+  function selectWork(i: number) { setSelected(i); setEditing(false); setSavedMsg(false) }
+
+  async function save() {
+    // 폼 값(문자열)을 저작물에 반영. keywords는 쉼표 분리 배열로 저장.
+    const updated: Record<string, unknown> = { ...w }
+    for (const [k] of WORK_FIELD_LABELS) {
+      const val = (form[k] ?? "").trim()
+      if (k === "keywords") updated[k] = val ? val.split(",").map((s) => s.trim()).filter(Boolean) : null
+      else updated[k] = val || null
+    }
+    const newWorks = localWorks.map((x, i) => (i === selected ? updated : x))
+    setSaving(true)
+    try {
+      if (recordId) {
+        const supabase = createClient()
+        const { error } = await supabase
+          .from("rights_checks")
+          .update({ contract_metadata: { contract: contract ?? null, works: newWorks } })
+          .eq("id", recordId)
+        if (error) throw new Error(error.message)
+      }
+      setLocalWorks(newWorks)
+      setEditing(false)
+      setSavedMsg(true)
+      setTimeout(() => setSavedMsg(false), 3000)
+    } catch (e) {
+      alert("저장 실패: " + (e instanceof Error ? e.message : "오류"))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-4">
       {/* 좌: 저작물 목록 (번호 배지 + 선택 강조 + 좌측 액센트 바) */}
       <div className="space-y-1 self-start">
-        {works.map((item, i) => {
+        {localWorks.map((item, i) => {
           const name = String(item.work_filename || `저작물 ${i + 1}`)
           const wt = item.work_type ? String(item.work_type) : null
           const active = i === selected
           return (
             <button
               key={i}
-              onClick={() => setSelected(i)}
+              onClick={() => selectWork(i)}
               className={`w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-colors relative ${
                 active ? "bg-primary-50 border border-primary-200" : "hover:bg-gray-50 border border-transparent"
               }`}
@@ -456,11 +519,33 @@ function WorksBrowser({ works }: { works: Record<string, unknown>[] }) {
           )
         })}
       </div>
-      {/* 우: 선택 저작물 20항목 (gray-50 패널) */}
+      {/* 우: 선택 저작물 20항목 (gray-50 패널) + 수정 */}
       <div className="bg-gray-50 rounded-lg p-5 min-w-0">
-        <div className="flex items-center gap-2 mb-4">
-          <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-primary-600 text-white text-xs font-bold flex-shrink-0">{selected + 1}</span>
-          <h4 className="text-sm font-semibold text-gray-800 truncate">{selName}</h4>
+        <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-primary-600 text-white text-xs font-bold flex-shrink-0">{selected + 1}</span>
+            <h4 className="text-sm font-semibold text-gray-800 truncate">{selName}</h4>
+          </div>
+          <div className="flex items-center gap-2">
+            {savedMsg && <span className="text-xs text-green-600 font-medium">✓ 저장됨</span>}
+            {!editing ? (
+              <button onClick={startEdit}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-primary-600 border border-primary-200 rounded-md hover:bg-primary-50 transition-colors">
+                <Pencil className="w-3 h-3" /> 수정
+              </button>
+            ) : (
+              <>
+                <button onClick={save} disabled={saving}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:bg-primary-300 transition-colors">
+                  <Save className="w-3 h-3" /> {saving ? "저장중…" : "저장"}
+                </button>
+                <button onClick={cancelEdit} disabled={saving}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors">
+                  <X className="w-3 h-3" /> 취소
+                </button>
+              </>
+            )}
+          </div>
         </div>
         <div className="overflow-x-auto bg-white border border-gray-100 rounded-lg">
           <table className="w-full text-sm">
@@ -469,7 +554,14 @@ function WorksBrowser({ works }: { works: Record<string, unknown>[] }) {
                 <tr key={k} className="border-b border-gray-50 last:border-0">
                   <td className="px-3 py-1.5 text-gray-500 w-[140px] align-top">{label}</td>
                   <td className="px-3 py-1.5 text-gray-900">
-                    {isMeaningful(w[k]) ? <MetaValue value={w[k]} /> : <span className="text-gray-400 italic">미식별</span>}
+                    {editing ? (
+                      <input
+                        value={form[k] ?? ""}
+                        onChange={(e) => setForm((prev) => ({ ...prev, [k]: e.target.value }))}
+                        className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary-400"
+                        placeholder="미식별"
+                      />
+                    ) : isMeaningful(w[k]) ? <MetaValue value={w[k]} /> : <span className="text-gray-400 italic">미식별</span>}
                   </td>
                 </tr>
               ))}

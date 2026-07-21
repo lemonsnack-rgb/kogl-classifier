@@ -100,6 +100,7 @@ export default function CombinedDetailPage() {
             showHighlight
             metadata={row.contract_metadata}
             hmcType={row.model_info?.type ?? null}
+            recordId={row.id}
           />
         ) : (
           <p className="text-sm text-gray-400">결과가 없습니다.</p>
