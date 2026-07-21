@@ -370,6 +370,11 @@ export default function WorkDetailPage() {
     const kw = patch.keywords
     const prevMeta = (work as unknown as { contract_metadata?: Record<string, unknown> | null }).contract_metadata || {}
     const mergedMeta = { ...prevMeta, ...patch }
+    const wrec = work as unknown as Record<string, unknown>
+    const oldType = (wrec.resolved_type ?? null) as string | null
+    const oldAi = (wrec.ai_type_applied ?? null) as boolean | null
+    const newType = (patch.resolved_type as string | null) ?? null
+    const newAi = (patch.ai_type_applied as boolean | null) ?? null
     const dbPayload: Record<string, unknown> = {
       work_name: (patch.work_name as string | null) || null,
       work_type: wt,
@@ -379,14 +384,33 @@ export default function WorkDetailPage() {
       language: (patch.language as string | null) || null,
       created_date: validCd,
       creator: (patch.creator as string | null) || null,
-      resolved_type: (patch.resolved_type as string | null) ?? null,
-      ai_type_applied: (patch.ai_type_applied as boolean | null) ?? null,
+      resolved_type: newType,
+      ai_type_applied: newAi,
       contract_metadata: mergedMeta,
+    }
+    // 최초(자동) 판정 보존: _auto가 아직 없으면 수정 직전 값을 스냅샷(불변)
+    const hasAuto = wrec.resolved_type_auto != null || wrec.ai_type_auto != null
+    if (!hasAuto) {
+      dbPayload.resolved_type_auto = oldType
+      dbPayload.ai_type_auto = oldAi
     }
     if (isSupabaseConfigured()) {
       const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        dbPayload.is_metadata_edited = true
+        dbPayload.metadata_edited_by = user.id
+        dbPayload.metadata_edited_at = new Date().toISOString()
+      }
       const { error } = await supabase.from("works").update(dbPayload).eq("id", work.id)
       if (error) throw new Error(error.message)
+      // 판정 변경 이력 로그(라벨링용): 유형·AI 변화만 기록
+      if (user) {
+        const logs: Record<string, unknown>[] = []
+        if (oldType !== newType) logs.push({ target_type: "work", target_id: work.id, field_name: "resolved_type", old_value: oldType, new_value: newType, edited_by: user.id })
+        if (oldAi !== newAi) logs.push({ target_type: "work", target_id: work.id, field_name: "ai_type_applied", old_value: String(oldAi), new_value: String(newAi), edited_by: user.id })
+        if (logs.length > 0) await supabase.from("edit_history").insert(logs)
+      }
     }
     setContract((prev) =>
       prev ? { ...prev, works: (prev.works ?? []).map((x) => (x.id === work.id ? { ...x, ...dbPayload } : x)) } : prev

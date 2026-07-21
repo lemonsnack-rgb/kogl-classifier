@@ -77,11 +77,35 @@ export default function CombinedDetailPage() {
   const contract = meta?.contract || null
   const works = meta?.works || []
 
-  async function saveWork(_index: number, _patch: Record<string, unknown>, nextWorks: Record<string, unknown>[]) {
+  async function saveWork(index: number, patch: Record<string, unknown>, nextWorks: Record<string, unknown>[]) {
     const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    const old = (works[index] || {}) as Record<string, unknown>
+    const oldType = (old.resolved_type ?? null) as unknown
+    const oldAi = (old.ai_type_applied ?? null) as unknown
+    const newType = (patch.resolved_type ?? null) as unknown
+    const newAi = (patch.ai_type_applied ?? null) as unknown
+
+    const augmented = [...nextWorks]
+    const cur = { ...(augmented[index] || {}) } as Record<string, unknown>
+    // 최초(자동) 판정 보존: _auto가 없으면 수정 직전 값 스냅샷(불변)
+    if (cur.resolved_type_auto == null && cur.ai_type_auto == null) {
+      cur.resolved_type_auto = oldType
+      cur.ai_type_auto = oldAi
+    }
+    // 판정 변경 이력 로그(라벨링용)
+    const at = new Date().toISOString()
+    const by = user?.id ?? null
+    const prevLog = Array.isArray(cur.edit_log) ? (cur.edit_log as unknown[]) : []
+    const entries: Record<string, unknown>[] = []
+    if (oldType !== newType) entries.push({ field: "resolved_type", from: oldType, to: newType, by, at })
+    if (oldAi !== newAi) entries.push({ field: "ai_type_applied", from: oldAi, to: newAi, by, at })
+    cur.edit_log = [...prevLog, ...entries]
+    augmented[index] = cur
+
     const { error } = await supabase
       .from("rights_checks")
-      .update({ contract_metadata: { contract: contract ?? null, works: nextWorks } })
+      .update({ contract_metadata: { contract: contract ?? null, works: augmented } })
       .eq("id", id)
     if (error) throw new Error(error.message)
   }

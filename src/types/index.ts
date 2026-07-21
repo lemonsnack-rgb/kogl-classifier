@@ -158,6 +158,9 @@ export interface Work {
   ai_type_applied?: boolean | null // AI유형 해당 여부(제1~4에 병행, 제0은 N/A)
   type_reason?: string | null // 판정 근거(사용한 메타 필드 서술)
   type_low_confidence?: boolean | null // 자동 추정 불확실 → "확인 권장" 표시용
+  // ── 최초(자동) 판정 보존 — 사람 수정과 구분(라벨링용) ──
+  resolved_type_auto?: KoglType | null // 최초 자동판정 유형(불변)
+  ai_type_auto?: boolean | null // 최초 자동판정 AI(불변)
   // ── 기존 호환 필드 ──
   copyright_period: string | null
   usage_scope: string | null

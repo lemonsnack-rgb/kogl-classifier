@@ -65,6 +65,23 @@ export function TypeAiBadges({ resolvedType, ai }: { resolvedType: unknown; ai: 
 
 const WORK_TYPE_LABELS: Record<string, string> = { image: "이미지", text: "텍스트", audio: "오디오", video: "영상" }
 
+/* 최초 자동판정(_auto)이 보존돼 있고 현재값과 다르면 = 사람이 수정함 */
+export function isHumanEdited(w: Record<string, unknown>): boolean {
+  const autoT = w.resolved_type_auto
+  const autoAi = w.ai_type_auto
+  const hasAuto = (autoT !== undefined && autoT !== null) || (autoAi !== undefined && autoAi !== null)
+  if (!hasAuto) return false
+  const curT = (w.resolved_type ?? null) as unknown
+  const curAi = (w.ai_type_applied ?? null) as unknown
+  return (autoT ?? null) !== curT || (autoAi ?? null) !== curAi
+}
+function autoSummary(w: Record<string, unknown>): string {
+  const t = w.resolved_type_auto
+  const label = isKoglType(t) ? KOGL_TYPES[t].label : "미판정"
+  const ai = w.ai_type_auto === true ? "AI 활용가능" : w.ai_type_auto === false ? "AI 활용불가" : "AI 판단불가"
+  return `최초 자동판정: ${label} · ${ai}`
+}
+
 /* 저작물 20항목 3범주 그룹 */
 const WORK_GROUPS: { title: string; color: string; fields: [string, string][] }[] = [
   {
@@ -327,6 +344,9 @@ export default function DetailConsole({
                   <div className="flex flex-wrap items-center gap-2">
                     <TypeAiBadges resolvedType={w.resolved_type} ai={w.ai_type_applied as boolean | null | undefined} />
                     {w.type_low_confidence === true && <span className="text-xs text-amber-600 font-medium">⚠ 자동 추정 · 확인 권장</span>}
+                    {isHumanEdited(w) && (
+                      <span className="text-xs text-orange-600 font-medium" title={autoSummary(w)}>· 사람 수정됨(자동판정과 다름)</span>
+                    )}
                     {typeof w.type_reason === "string" && w.type_reason && <span className="text-xs text-gray-500">· {w.type_reason}</span>}
                   </div>
                 )}
