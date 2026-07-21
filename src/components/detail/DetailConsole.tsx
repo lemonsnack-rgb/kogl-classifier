@@ -374,7 +374,7 @@ export default function DetailConsole({
                             <tr key={k} className="border-b border-gray-50 last:border-0 hover:bg-gray-50">
                               <td className="px-4 py-2 text-sm text-gray-500 font-medium align-top">{label}</td>
                               <td className="px-4 py-2 text-sm text-gray-900">
-                                {editing && k !== "creator" ? (
+                                {editing ? (
                                   <input value={form[k] ?? ""} onChange={(e) => setForm((p) => ({ ...p, [k]: e.target.value }))}
                                     className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                                     placeholder="미식별" />
