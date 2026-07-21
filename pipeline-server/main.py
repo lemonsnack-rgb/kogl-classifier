@@ -363,6 +363,60 @@ async def process_pipeline(
             if sb:
                 sb.table("contracts").update({"status": "review_required"}).eq("id", contract_id).execute()
 
+    # ── 4단계: 저작물별 SSU 추출 + 신유형 판정 ──
+    contract_kogl = TYPE_MAP.get(hmc_result.get("predicted_type", "")) if hmc_result else None
+    if sb:
+        try:
+            works_res = (
+                sb.table("works")
+                .select("id, work_file_url, work_filename")
+                .eq("contract_id", contract_id)
+                .execute()
+            )
+            work_rows = works_res.data or []
+        except Exception as e:
+            work_rows = []
+            append_log(sb, contract_id, "저작물 분석", "failed", f"저작물 목록 조회 실패: {str(e)[:200]}")
+        if work_rows:
+            append_log(sb, contract_id, "저작물 분석", "processing", f"저작물 {len(work_rows)}건 추출 시작")
+            done = 0
+            async with httpx.AsyncClient(timeout=600.0) as client:
+                for wrow in work_rows:
+                    wid = wrow.get("id")
+                    wpath = wrow.get("work_file_url")
+                    wname = wrow.get("work_filename") or "work"
+                    if not wpath:
+                        sb.table("works").update({"ocr_status": "failed"}).eq("id", wid).execute()
+                        continue
+                    try:
+                        wbytes = sb.storage.from_("works").download(wpath)
+                        wssu = await _ssu_extract(client, wbytes, wname, "기타문서")
+                        wmeta = wssu.get("consolidated_metadata") or wssu.get("metadata") or {}
+                        fields = map_ssu_to_work_fields(wmeta)
+                        verdict = resolve_kogl_type(fields, contract_kogl)
+                        sb.table("works").update({
+                            "work_name": fields.get("work_name"),
+                            "description": fields.get("description"),
+                            "digital_format": fields.get("digital_format"),
+                            "language": fields.get("language"),
+                            "creator": fields.get("creator"),
+                            "usage_scope": fields.get("usage_scope"),
+                            "copyright_period": fields.get("copyright_period"),
+                            "keywords": fields.get("keywords"),
+                            "contract_metadata": fields,
+                            "resolved_type": verdict["resolved_type"],
+                            "ai_type_applied": verdict["ai_candidate"],
+                            "type_reason": verdict["reason"],
+                            "type_low_confidence": verdict["low_confidence"],
+                            "ocr_text": (wssu.get("ocr_text") or "")[:10000],
+                            "ocr_status": "completed",
+                        }).eq("id", wid).execute()
+                        done += 1
+                    except Exception as e:
+                        sb.table("works").update({"ocr_status": "failed"}).eq("id", wid).execute()
+                        append_log(sb, contract_id, "저작물 분석", "failed", f"{wname}: {str(e)[:150]}")
+            append_log(sb, contract_id, "저작물 분석", "success", f"저작물 {done}/{len(work_rows)}건 처리 완료")
+
     return {
         "ok": True,
         "contract_id": contract_id,
