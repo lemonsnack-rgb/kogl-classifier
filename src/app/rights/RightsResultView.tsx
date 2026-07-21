@@ -336,24 +336,47 @@ function SummaryPill({ label, value, color }: { label: string; value: number; co
 
 /* ── 저작물 메타데이터 (SSU 추출) 렌더러 ── */
 const META_LABELS: Record<string, string> = {
+  // 저작물/공통
   work_title: "계약 제목", work_names: "계약 제목", title: "제목", keyword: "주제어", keywords: "주제어",
   work_category: "저작물 분류", work_type: "유형", rights_holder: "권리자",
   copyright_holder: "저작권자", author: "저작자", creator: "제작자",
   agency_name: "기관명", institution: "기관", language: "언어", description: "설명",
-  contract_type: "계약서 유형", consent_type: "동의서 유형",
+  work_display: "저작물 표시", work_details: "상세정보", detailed_info: "상세정보",
+  // 계약서
+  contract_type: "계약서 유형", contract_type_selection: "계약 유형", consent_type: "동의서 유형",
   granted_rights: "양도 권리", economic_rights: "저작재산권", commercial_use: "상업적 이용",
-  contract_purpose: "계약 목적", contract_duration: "계약 기간",
+  contract_purpose: "계약 목적", contract_duration: "계약 기간", contract_terms: "계약 조건",
   effective_date: "시작일", expiration_date: "종료일", created_date: "제작일", production_date: "제작일",
-  signature_date: "서명일", consent_date: "동의 날짜", consent_status: "동의 여부",
-  payment_amount: "대금", special_terms: "특약사항",
-  user: "이용기관", parties: "당사자", name: "이름", role: "역할", phone: "연락처", address: "주소", email: "이메일",
+  signature_date: "서명일", signature: "서명", consent_date: "동의 날짜", consent_status: "동의 여부",
+  payment_amount: "대금", payment_terms: "대금 지급 조건", payment_currency: "통화",
+  special_terms: "특약사항", termination_conditions: "해지 조건",
+  renewal_options: "갱신 조건", auto_renewal: "자동 갱신", manual_renewal: "수동 갱신",
+  exclusive: "독점적", non_exclusive: "비독점적", prepaid: "선불", postpaid: "후불", installment: "분할 지급",
+  // 권리(개별)
+  reproduction_right: "복제권", performance_right: "공연권", broadcasting_right: "방송권",
+  exhibition_right: "전시권", distribution_right: "배포권", rental_right: "대여권",
+  derivative_work_right: "2차적저작물작성권",
+  modification_rights: "변경 권리", modification_allowed: "변경 허용", integrity_right_waiver: "동일성유지권 포기",
+  copyright_license: "저작재산권 이용허락", license_purpose: "허락 목적", license_type: "라이선스 유형",
+  licensing_institution: "허락 기관", public_nuri_license: "공공누리 라이선스", nuri_type: "공공누리 유형",
+  // 개인정보/동의서
+  personal_info_consent: "개인정보 동의", collection_purpose: "수집 목적", collected_data_types: "수집 항목",
+  retention_period: "보유 기간", third_party_sharing: "제3자 제공", recipient: "제공받는 자",
+  purpose: "이용 목적", data_types: "제공 항목", withdrawal_rights: "철회 권리",
+  consequences_of_refusal: "거절 시 결과", conditions: "조건",
+  // 당사자/기관
+  user: "이용기관", utilizing_institution: "활용기관", parties: "당사자", name: "이름", role: "역할",
+  phone: "연락처", contact_info: "연락처", address: "주소", email: "이메일",
   data_subject: "정보주체", data_controller: "처리기관", registration_no: "등록번호",
 }
-// 관리자에게 무의미한 내부 처리 필드 — 화면에서 숨긴다.
+// 관리자에게 무의미한 내부 처리 필드 / 데이터셋 원본 잡음 키 — 화면에서 숨긴다.
 const HIDDEN_META_KEYS = new Set([
   "checkbox_info", "checkbox_pattern_detected", "pattern_detected", "checkbox_fields_found",
   "extraction_confidence", "processing_info", "error", "ner_error", "consolidation_error",
   "ner_model_key", "consolidation_model", "available_types",
+  // 데이터셋/게시판 스크랩 원본 잡음(계약서 메타로 무의미)
+  "board_name", "board_path", "seq_number", "view_count", "photo_count", "video_count",
+  "site_name", "url", "attachment", "category",
 ])
 function metaLabel(k: string): string { return META_LABELS[k] ?? k }
 function metaVisible(k: string): boolean { return !HIDDEN_META_KEYS.has(k) }
