@@ -200,6 +200,10 @@ export default function WorkDetailPage() {
 
   // 메타데이터 인라인 수정 상태
   const [metaForm, setMetaForm] = useState<Record<string, string>>({})
+  // 저작물별 신유형 판정 수정 상태
+  const [editWorkType, setEditWorkType] = useState<KoglType | "">("")
+  const [editWorkAi, setEditWorkAi] = useState<boolean>(false)
+  const [savingMeta, setSavingMeta] = useState(false)
 
   if (loading || contract === undefined) {
     return (
@@ -265,6 +269,12 @@ export default function WorkDetailPage() {
       copyright_period: selectedWork.copyright_period ?? "",
       usage_scope: selectedWork.usage_scope ?? "",
     })
+    setEditWorkType(
+      selectedWork.resolved_type && selectedWork.resolved_type in KOGL_TYPES
+        ? (selectedWork.resolved_type as KoglType)
+        : ""
+    )
+    setEditWorkAi(selectedWork.ai_type_applied === true)
     setEditingMeta(true)
   }
 
@@ -273,10 +283,53 @@ export default function WorkDetailPage() {
     setMetaForm({})
   }
 
-  function saveEditMeta() {
-    alert("저장되었습니다")
-    setEditingMeta(false)
-    setMetaForm({})
+  async function saveEditMeta() {
+    if (!selectedWork) return
+    const validWorkType = ["image", "text", "audio", "video"].includes(metaForm.work_type ?? "")
+      ? metaForm.work_type
+      : null
+    const cd = (metaForm.created_date ?? "").trim()
+    const validCreatedDate = /^\d{4}-\d{2}-\d{2}$/.test(cd) ? cd : null
+    const kw = (metaForm.keywords ?? "").trim()
+    const payload: Record<string, unknown> = {
+      work_name: (metaForm.work_name ?? "").trim() || null,
+      work_type: validWorkType,
+      digital_format: (metaForm.digital_format ?? "").trim() || null,
+      description: (metaForm.description ?? "").trim() || null,
+      keywords: kw ? kw.split(",").map((s) => s.trim()).filter(Boolean) : null,
+      language: (metaForm.language ?? "").trim() || null,
+      created_date: validCreatedDate,
+      creator: (metaForm.creator ?? "").trim() || null,
+      copyright_period: (metaForm.copyright_period ?? "").trim() || null,
+      usage_scope: (metaForm.usage_scope ?? "").trim() || null,
+      // 신유형 판정: 유형(제0~4) + AI유형(제0이면 항상 N/A=false)
+      resolved_type: editWorkType || null,
+      ai_type_applied: editWorkType === "KOGL-0" ? false : editWorkAi,
+    }
+    setSavingMeta(true)
+    try {
+      if (isSupabaseConfigured()) {
+        const supabase = createClient()
+        const { error } = await supabase.from("works").update(payload).eq("id", selectedWork.id)
+        if (error) throw new Error(error.message)
+      }
+      setContract((prev) =>
+        prev
+          ? {
+              ...prev,
+              works: (prev.works ?? []).map((x) =>
+                x.id === selectedWork.id ? { ...x, ...payload } : x
+              ),
+            }
+          : prev
+      )
+      setEditingMeta(false)
+      setMetaForm({})
+    } catch (e) {
+      alert("저장 실패: " + (e instanceof Error ? e.message : "오류"))
+    } finally {
+      setSavingMeta(false)
+    }
   }
 
   function handleSelectWork(idx: number) {
@@ -710,18 +763,71 @@ export default function WorkDetailPage() {
                   <div className="flex gap-2">
                     <button
                       onClick={saveEditMeta}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 transition-colors"
+                      disabled={savingMeta}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:bg-primary-300 transition-colors"
                     >
                       <Check className="w-3.5 h-3.5" />
-                      저장
+                      {savingMeta ? "저장중…" : "저장"}
                     </button>
                     <button
                       onClick={cancelEditMeta}
+                      disabled={savingMeta}
                       className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                     >
                       <X className="w-3.5 h-3.5" />
                       취소
                     </button>
+                  </div>
+                )}
+              </div>
+
+              {/* 공공누리 유형 판정: 확정 유형 + AI유형 + 근거 (수정 시 드롭다운·체크박스) */}
+              <div className="mb-5 bg-white border border-gray-200 rounded-lg border-l-4 border-l-purple-500 p-4">
+                <div className="text-xs font-bold text-gray-500 mb-2">공공누리 유형 판정</div>
+                {editingMeta ? (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <select
+                      value={editWorkType}
+                      onChange={(e) => setEditWorkType(e.target.value as KoglType | "")}
+                      className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
+                      <option value="">미판정</option>
+                      {(Object.keys(KOGL_TYPES) as KoglType[]).map((t) => (
+                        <option key={t} value={t}>{KOGL_TYPES[t].label} · {KOGL_TYPES[t].description}</option>
+                      ))}
+                    </select>
+                    <label className={`inline-flex items-center gap-1.5 text-sm ${editWorkType === "KOGL-0" ? "text-gray-300" : "text-gray-700"}`}>
+                      <input
+                        type="checkbox"
+                        checked={editWorkType === "KOGL-0" ? false : editWorkAi}
+                        disabled={editWorkType === "KOGL-0"}
+                        onChange={(e) => setEditWorkAi(e.target.checked)}
+                        className="rounded border-gray-300"
+                      />
+                      AI유형 해당
+                    </label>
+                    {editWorkType === "KOGL-0" && <span className="text-xs text-gray-400">제0유형은 AI유형 해당 없음</span>}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {selectedWork.resolved_type && selectedWork.resolved_type in KOGL_TYPES ? (
+                      <KoglBadge type={selectedWork.resolved_type as KoglType} />
+                    ) : (
+                      <span className="text-xs text-gray-400 italic">유형 미판정</span>
+                    )}
+                    {selectedWork.resolved_type &&
+                      selectedWork.resolved_type !== "KOGL-0" &&
+                      selectedWork.ai_type_applied === true && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border border-indigo-300 text-indigo-700 bg-indigo-50">
+                          AI 학습 가능
+                        </span>
+                      )}
+                    {selectedWork.type_low_confidence === true && (
+                      <span className="text-xs text-amber-600 font-medium">⚠ 자동 추정 · 확인 권장</span>
+                    )}
+                    {selectedWork.type_reason && (
+                      <span className="text-xs text-gray-500">· {selectedWork.type_reason}</span>
+                    )}
                   </div>
                 )}
               </div>

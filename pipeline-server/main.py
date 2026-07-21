@@ -73,6 +73,79 @@ def map_ssu_to_work_fields(meta: dict) -> dict:
     }
 
 
+_TRUE_TOKENS = ("예", "yes", "true", "해당", "포함", "있음", "적용", "동의")
+# 부정 토큰을 참 토큰보다 먼저 검사한다. "미동의"·"미포함"처럼 참 토큰을 부분포함하는
+# 부정 표현을 반드시 거짓으로 잡기 위해 도메인 부정어를 폭넓게 등록한다.
+_FALSE_TOKENS = (
+    "아니", "no", "false", "미해당", "없음", "불포함", "미포함", "미적용",
+    "미동의", "부동의", "비동의", "동의하지", "동의 안", "안함", "안 함",
+    "거부", "해당 없음", "해당없음",
+)
+_EXPIRED_TOKENS = ("만료", "비보호", "expired", "public domain", "퍼블릭도메인")
+
+
+def _is_true(v) -> bool:
+    if v is None:
+        return False
+    s = str(v).strip().lower()
+    if not s:
+        return False
+    if any(t in s for t in _FALSE_TOKENS):
+        return False
+    return any(t in s for t in _TRUE_TOKENS)
+
+
+def _is_expired(v) -> bool:
+    if v is None:
+        return False
+    s = str(v).lower()
+    return any(t in s for t in _EXPIRED_TOKENS)
+
+
+def resolve_kogl_type(work_meta: dict, hmc_type):
+    """SSU 저작물 메타 + HMC 유형 → 저작물별 신유형 판정(후처리 규칙)."""
+    non_protected = work_meta.get("non_protected_work")
+    work_for_hire = work_meta.get("work_for_hire")
+    portrait = work_meta.get("portrait_rights")
+    consent = work_meta.get("co_author_consent")
+
+    hmc_valid = hmc_type if hmc_type in ("KOGL-1", "KOGL-2", "KOGL-3", "KOGL-4") else None
+    resolved = hmc_valid
+    ai_candidate = False
+    reason = None
+    low_confidence = False
+
+    if _is_true(non_protected) or _is_expired(non_protected):
+        resolved = "KOGL-0"
+        reason = "비보호(만료)저작물"
+    elif _is_true(work_for_hire) and not _is_true(portrait):
+        resolved = "KOGL-0"
+        reason = "업무상저작물, 초상권 없음"
+    else:
+        if hmc_valid is None:
+            reason = "유형 신호 부족(계약서 판정 없음)"
+        else:
+            reason = "계약 기반 유형(상업·변경 축)"
+        if _is_true(consent):
+            ai_candidate = True
+
+    if resolved == "KOGL-0":
+        ai_candidate = False
+
+    # 유형이 정해지지 않았거나(미판정) 판정 근거 신호가 전혀 없으면 "확인 권장".
+    if resolved is None or not (
+        _is_true(non_protected) or _is_expired(non_protected) or _is_true(work_for_hire) or hmc_valid
+    ):
+        low_confidence = True
+
+    return {
+        "resolved_type": resolved,
+        "ai_candidate": ai_candidate,
+        "reason": reason,
+        "low_confidence": low_confidence,
+    }
+
+
 async def _ssu_extract(client, file_bytes, file_name, document_type):
     files = {"file": (file_name, file_bytes, "application/octet-stream")}
     data = {"document_type": document_type, "consolidate": "true"}
@@ -299,6 +372,62 @@ async def process_pipeline(
             if sb:
                 sb.table("contracts").update({"status": "review_required"}).eq("id", contract_id).execute()
 
+    # ── 4단계: 저작물별 SSU 추출 + 신유형 판정 ──
+    contract_kogl = TYPE_MAP.get(hmc_result.get("predicted_type", "")) if hmc_result else None
+    if sb:
+        try:
+            works_res = (
+                sb.table("works")
+                .select("id, work_file_url, work_filename")
+                .eq("contract_id", contract_id)
+                .execute()
+            )
+            work_rows = works_res.data or []
+        except Exception as e:
+            work_rows = []
+            append_log(sb, contract_id, "저작물 분석", "failed", f"저작물 목록 조회 실패: {str(e)[:200]}")
+        if work_rows:
+            append_log(sb, contract_id, "저작물 분석", "processing", f"저작물 {len(work_rows)}건 추출 시작")
+            done = 0
+            async with httpx.AsyncClient(timeout=600.0) as client:
+                for wrow in work_rows:
+                    wid = wrow.get("id")
+                    wpath = wrow.get("work_file_url")
+                    wname = wrow.get("work_filename") or "work"
+                    try:
+                        if not wpath:
+                            raise RuntimeError("저작물 파일 경로 없음")
+                        wbytes = sb.storage.from_("works").download(wpath)
+                        wssu = await _ssu_extract(client, wbytes, wname, "기타문서")
+                        wmeta = wssu.get("consolidated_metadata") or wssu.get("metadata") or {}
+                        fields = map_ssu_to_work_fields(wmeta)
+                        verdict = resolve_kogl_type(fields, contract_kogl)
+                        sb.table("works").update({
+                            "work_name": fields.get("work_name"),
+                            "description": fields.get("description"),
+                            "digital_format": fields.get("digital_format"),
+                            "language": fields.get("language"),
+                            "creator": fields.get("creator"),
+                            "usage_scope": fields.get("usage_scope"),
+                            "copyright_period": fields.get("copyright_period"),
+                            "keywords": fields.get("keywords"),
+                            "contract_metadata": fields,
+                            "resolved_type": verdict["resolved_type"],
+                            "ai_type_applied": verdict["ai_candidate"],
+                            "type_reason": verdict["reason"],
+                            "type_low_confidence": verdict["low_confidence"],
+                            "ocr_text": (wssu.get("ocr_text") or "")[:10000],
+                            "ocr_status": "completed",
+                        }).eq("id", wid).execute()
+                        done += 1
+                    except Exception as e:
+                        try:
+                            sb.table("works").update({"ocr_status": "failed"}).eq("id", wid).execute()
+                        except Exception:
+                            pass
+                        append_log(sb, contract_id, "저작물 분석", "failed", f"{wname}: {str(e)[:150]}")
+            append_log(sb, contract_id, "저작물 분석", "success", f"저작물 {done}/{len(work_rows)}건 처리 완료")
+
     return {
         "ok": True,
         "contract_id": contract_id,
@@ -361,6 +490,24 @@ async def process_combined(
                 }
             except Exception:
                 hmc_type = None
+            # 저작물별 신유형 판정(제0유형·AI유형) 병합
+            hmc_kogl = None
+            if hmc_type and hmc_type.get("predicted_type"):
+                hmc_kogl = TYPE_MAP.get(hmc_type["predicted_type"])
+            for wrow in works_out:
+                if wrow.get("_error"):
+                    # 추출 실패 저작물은 판정하지 않는다(잘못된 확정 유형 방지).
+                    wrow["resolved_type"] = None
+                    wrow["ai_type_applied"] = False
+                    wrow["type_reason"] = "추출 실패로 판정 불가"
+                    wrow["type_low_confidence"] = True
+                    continue
+                verdict = resolve_kogl_type(wrow, hmc_kogl)
+                wrow["resolved_type"] = verdict["resolved_type"]
+                wrow["ai_type_applied"] = verdict["ai_candidate"]
+                wrow["type_reason"] = verdict["reason"]
+                wrow["type_low_confidence"] = verdict["low_confidence"]
+            upd({"contract_metadata": {"contract": contract_meta, "works": works_out}})
             rights = await _rights_predict(client, ocr_text, contract_name)
             upd({
                 "summary": rights.get("summary"),
