@@ -363,7 +363,7 @@ export default function WorkDetailPage() {
     return { ...meta, ...rec }
   })
 
-  async function saveWork(index: number, patch: Record<string, unknown>) {
+  async function saveWork(index: number, patch: Record<string, unknown>, _nextWorks: Record<string, unknown>[], reason?: string) {
     const work = works[index]
     if (!work) return
     const wtRaw = patch.work_type
@@ -410,8 +410,8 @@ export default function WorkDetailPage() {
       // 판정 변경 이력 로그(라벨링용): 유형·AI 변화만 기록
       if (user) {
         const logs: Record<string, unknown>[] = []
-        if (oldType !== newType) logs.push({ target_type: "work", target_id: work.id, field_name: "resolved_type", old_value: oldType, new_value: newType, edited_by: user.id })
-        if (oldAi !== newAi) logs.push({ target_type: "work", target_id: work.id, field_name: "ai_type_applied", old_value: String(oldAi), new_value: String(newAi), edited_by: user.id })
+        if (oldType !== newType) logs.push({ target_type: "work", target_id: work.id, field_name: "resolved_type", old_value: oldType, new_value: newType, edited_by: user.id, reason: reason ?? null })
+        if (oldAi !== newAi) logs.push({ target_type: "work", target_id: work.id, field_name: "ai_type_applied", old_value: String(oldAi), new_value: String(newAi), edited_by: user.id, reason: reason ?? null })
         if (logs.length > 0) await supabase.from("edit_history").insert(logs)
       }
     }

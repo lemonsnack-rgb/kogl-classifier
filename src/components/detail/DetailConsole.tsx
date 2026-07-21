@@ -146,8 +146,8 @@ export interface DetailConsoleProps {
   contractMetaNode?: React.ReactNode
   /** 저작물 배열(각 항목은 20필드 + resolved_type/ai_type_applied/type_reason/type_low_confidence + work_filename/work_type/id 를 top-level로 보유) */
   works: Record<string, unknown>[]
-  /** 저작물 저장 콜백. index=대상, patch=변경필드, nextWorks=병합된 전체 배열(JSONB 저장용). 미제공 시 편집 불가 */
-  onSaveWork?: (index: number, patch: Record<string, unknown>, nextWorks: Record<string, unknown>[]) => Promise<void>
+  /** 저작물 저장 콜백. index=대상, patch=변경필드, nextWorks=병합된 전체 배열(JSONB 저장용), reason=수정 사유(선택). 미제공 시 편집 불가 */
+  onSaveWork?: (index: number, patch: Record<string, unknown>, nextWorks: Record<string, unknown>[], reason?: string) => Promise<void>
   /** 저작물 목록 하단 부가 노드(엑셀 다운로드 등) */
   worksFooter?: React.ReactNode
   /** 저작물 우측 패널 헤더의 저작물별 액션(미리보기 등) */
@@ -165,6 +165,7 @@ export default function DetailConsole({
   const [form, setForm] = useState<Record<string, string>>({})
   const [typeForm, setTypeForm] = useState<string>("")
   const [aiForm, setAiForm] = useState<AiStatus>("unknown")
+  const [reasonForm, setReasonForm] = useState<string>("")
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState(false)
 
@@ -181,6 +182,7 @@ export default function DetailConsole({
     setForm(f)
     setTypeForm(isKoglType(w.resolved_type) ? w.resolved_type : "")
     setAiForm(aiToStatus(w.ai_type_applied))
+    setReasonForm("")
     setEditing(true)
     setSavedMsg(false)
   }
@@ -199,7 +201,7 @@ export default function DetailConsole({
     const nextWorks = localWorks.map((x, i) => (i === sel ? { ...x, ...patch } : x))
     setSaving(true)
     try {
-      await onSaveWork(sel, patch, nextWorks)
+      await onSaveWork(sel, patch, nextWorks, reasonForm.trim() || undefined)
       setLocalWorks(nextWorks)
       setEditing(false)
       setSavedMsg(true)
@@ -340,6 +342,15 @@ export default function DetailConsole({
                         <option value="unknown">판단 불가</option>
                       </select>
                       {typeForm === "KOGL-0" && <span className="text-xs text-gray-400 flex-shrink-0">제0유형은 해당 없음</span>}
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs font-semibold text-gray-600 w-[92px] flex-shrink-0 pt-1.5">수정 사유</span>
+                      <input
+                        value={reasonForm}
+                        onChange={(e) => setReasonForm(e.target.value)}
+                        placeholder="예: 계약서 제6조에 상업적 이용 명시 (선택 · 학습 데이터로 활용)"
+                        className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
                     </div>
                   </div>
                 ) : (

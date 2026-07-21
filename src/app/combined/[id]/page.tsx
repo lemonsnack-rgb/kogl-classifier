@@ -81,7 +81,7 @@ export default function CombinedDetailPage() {
   const contract = meta?.contract || null
   const works = meta?.works || []
 
-  async function saveWork(index: number, patch: Record<string, unknown>, nextWorks: Record<string, unknown>[]) {
+  async function saveWork(index: number, patch: Record<string, unknown>, nextWorks: Record<string, unknown>[], reason?: string) {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     const old = (works[index] || {}) as Record<string, unknown>
@@ -102,8 +102,8 @@ export default function CombinedDetailPage() {
     const by = user?.id ?? null
     const prevLog = Array.isArray(cur.edit_log) ? (cur.edit_log as unknown[]) : []
     const entries: Record<string, unknown>[] = []
-    if (oldType !== newType) entries.push({ field: "resolved_type", from: oldType, to: newType, by, at })
-    if (oldAi !== newAi) entries.push({ field: "ai_type_applied", from: oldAi, to: newAi, by, at })
+    if (oldType !== newType) entries.push({ field: "resolved_type", from: oldType, to: newType, by, at, reason: reason ?? null })
+    if (oldAi !== newAi) entries.push({ field: "ai_type_applied", from: oldAi, to: newAi, by, at, reason: reason ?? null })
     cur.edit_log = [...prevLog, ...entries]
     augmented[index] = cur
 
