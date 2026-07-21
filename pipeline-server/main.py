@@ -74,7 +74,13 @@ def map_ssu_to_work_fields(meta: dict) -> dict:
 
 
 _TRUE_TOKENS = ("예", "yes", "true", "해당", "포함", "있음", "적용", "동의")
-_FALSE_TOKENS = ("아니", "no", "false", "미해당", "없음", "불포함", "미적용", "해당 없음", "해당없음")
+# 부정 토큰을 참 토큰보다 먼저 검사한다. "미동의"·"미포함"처럼 참 토큰을 부분포함하는
+# 부정 표현을 반드시 거짓으로 잡기 위해 도메인 부정어를 폭넓게 등록한다.
+_FALSE_TOKENS = (
+    "아니", "no", "false", "미해당", "없음", "불포함", "미포함", "미적용",
+    "미동의", "부동의", "비동의", "동의하지", "동의 안", "안함", "안 함",
+    "거부", "해당 없음", "해당없음",
+)
 _EXPIRED_TOKENS = ("만료", "비보호", "expired", "public domain", "퍼블릭도메인")
 
 
@@ -126,7 +132,10 @@ def resolve_kogl_type(work_meta: dict, hmc_type):
     if resolved == "KOGL-0":
         ai_candidate = False
 
-    if not (_is_true(non_protected) or _is_expired(non_protected) or _is_true(work_for_hire) or hmc_valid):
+    # 유형이 정해지지 않았거나(미판정) 판정 근거 신호가 전혀 없으면 "확인 권장".
+    if resolved is None or not (
+        _is_true(non_protected) or _is_expired(non_protected) or _is_true(work_for_hire) or hmc_valid
+    ):
         low_confidence = True
 
     return {
@@ -385,10 +394,9 @@ async def process_pipeline(
                     wid = wrow.get("id")
                     wpath = wrow.get("work_file_url")
                     wname = wrow.get("work_filename") or "work"
-                    if not wpath:
-                        sb.table("works").update({"ocr_status": "failed"}).eq("id", wid).execute()
-                        continue
                     try:
+                        if not wpath:
+                            raise RuntimeError("저작물 파일 경로 없음")
                         wbytes = sb.storage.from_("works").download(wpath)
                         wssu = await _ssu_extract(client, wbytes, wname, "기타문서")
                         wmeta = wssu.get("consolidated_metadata") or wssu.get("metadata") or {}
@@ -413,7 +421,10 @@ async def process_pipeline(
                         }).eq("id", wid).execute()
                         done += 1
                     except Exception as e:
-                        sb.table("works").update({"ocr_status": "failed"}).eq("id", wid).execute()
+                        try:
+                            sb.table("works").update({"ocr_status": "failed"}).eq("id", wid).execute()
+                        except Exception:
+                            pass
                         append_log(sb, contract_id, "저작물 분석", "failed", f"{wname}: {str(e)[:150]}")
             append_log(sb, contract_id, "저작물 분석", "success", f"저작물 {done}/{len(work_rows)}건 처리 완료")
 
@@ -484,6 +495,13 @@ async def process_combined(
             if hmc_type and hmc_type.get("predicted_type"):
                 hmc_kogl = TYPE_MAP.get(hmc_type["predicted_type"])
             for wrow in works_out:
+                if wrow.get("_error"):
+                    # 추출 실패 저작물은 판정하지 않는다(잘못된 확정 유형 방지).
+                    wrow["resolved_type"] = None
+                    wrow["ai_type_applied"] = False
+                    wrow["type_reason"] = "추출 실패로 판정 불가"
+                    wrow["type_low_confidence"] = True
+                    continue
                 verdict = resolve_kogl_type(wrow, hmc_kogl)
                 wrow["resolved_type"] = verdict["resolved_type"]
                 wrow["ai_type_applied"] = verdict["ai_candidate"]
