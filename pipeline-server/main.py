@@ -162,10 +162,27 @@ def resolve_kogl_type(work_meta: dict, hmc_type):
     }
 
 
+# SSU(OCR)는 GPU 단일 서버 병목 — 동시 호출 수를 제한하는 전역 세마포어(큐).
+# 모든 SSU 호출은 이 세마포어를 통과하므로 SSU가 SSU_CONCURRENCY 개 초과로 동시에 맞지 않는다.
+SSU_CONCURRENCY = int(os.environ.get("SSU_CONCURRENCY", "1"))
+SSU_SEM = asyncio.Semaphore(SSU_CONCURRENCY)
+
+# 백그라운드 작업 참조 보관(미보관 시 GC로 중단될 수 있음)
+_BG_TASKS: set = set()
+
+
+def _schedule(coro):
+    t = asyncio.create_task(coro)
+    _BG_TASKS.add(t)
+    t.add_done_callback(_BG_TASKS.discard)
+    return t
+
+
 async def _ssu_extract(client, file_bytes, file_name, document_type):
     files = {"file": (file_name, file_bytes, "application/octet-stream")}
     data = {"document_type": document_type, "consolidate": "true"}
-    r = await client.post(f"{SSU_API_URL}/api/llm-extract", files=files, data=data)
+    async with SSU_SEM:
+        r = await client.post(f"{SSU_API_URL}/api/llm-extract", files=files, data=data)
     r.raise_for_status()
     return r.json()
 
@@ -272,9 +289,14 @@ async def process_pipeline(
     document_type: str = Form("기타문서"),
     file_name: str = Form("document.pdf"),
 ):
+    # 파일 바이트를 요청 컨텍스트에서 읽고, 처리는 백그라운드로 넘긴 뒤 즉시 접수 응답.
     sb = get_supabase()
     file_bytes = await file.read()
+    _schedule(_job_process(sb, file_bytes, contract_id, document_type, file_name))
+    return {"ok": True, "queued": True, "contract_id": contract_id}
 
+
+async def _job_process(sb, file_bytes, contract_id, document_type, file_name):
     # ── 1단계: 시작 ──
     if sb:
         sb.table("contracts").update({"status": "ocr_processing"}).eq("id", contract_id).execute()
@@ -290,11 +312,12 @@ async def process_pipeline(
             ssu_files = {"file": (file_name, file_bytes, "application/pdf")}
             ssu_data = {"document_type": document_type, "consolidate": "true"}
 
-            ssu_response = await client.post(
-                f"{SSU_API_URL}/api/llm-extract",
-                files=ssu_files,
-                data=ssu_data,
-            )
+            async with SSU_SEM:  # SSU 동시 호출 제한(큐)
+                ssu_response = await client.post(
+                    f"{SSU_API_URL}/api/llm-extract",
+                    files=ssu_files,
+                    data=ssu_data,
+                )
 
             if ssu_response.status_code == 200:
                 ssu_result = ssu_response.json()
@@ -465,7 +488,11 @@ async def process_combined(
     contract_name = contract.filename or "contract.pdf"
     contract_bytes = await contract.read()
     work_files = [((w.filename or f"work_{i}"), await w.read()) for i, w in enumerate(works)]
+    _schedule(_job_combined(sb, rights_check_id, document_type, contract_name, contract_bytes, work_files))
+    return {"ok": True, "queued": True, "rights_check_id": rights_check_id}
 
+
+async def _job_combined(sb, rights_check_id, document_type, contract_name, contract_bytes, work_files):
     def upd(fields):
         if sb:
             sb.table("rights_checks").update(fields).eq("id", rights_check_id).execute()
@@ -546,21 +573,24 @@ async def process_rights(
     text: str = Form(default=""),
 ):
     sb = get_supabase()
+    fbytes = await file.read() if file is not None else None
+    fname = (file.filename or "document.pdf") if file is not None else "text"
+    _schedule(_job_rights(sb, rights_check_id, document_type, fbytes, fname, text))
+    return {"ok": True, "queued": True, "rights_check_id": rights_check_id}
 
+
+async def _job_rights(sb, rights_check_id, document_type, fbytes, fname, text):
     def upd(fields):
         if sb:
             sb.table("rights_checks").update(fields).eq("id", rights_check_id).execute()
 
     try:
         async with httpx.AsyncClient(timeout=600.0) as client:
-            fname = "text"
             if text and text.strip():
                 ocr_text = text.strip()[:20000]
                 upd({"ocr_text": ocr_text, "status": "predicting"})
-            elif file is not None:
+            elif fbytes is not None:
                 upd({"status": "ocr_processing"})
-                fbytes = await file.read()
-                fname = file.filename or "document.pdf"
                 ssu = await _ssu_extract(client, fbytes, fname, document_type)
                 ocr_text = (ssu.get("ocr_text", "") or "")[:20000]
                 upd({
