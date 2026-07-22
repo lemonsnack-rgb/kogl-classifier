@@ -114,6 +114,52 @@ export default function CombinedDetailPage() {
     if (error) throw new Error(error.message)
   }
 
+  // 계약서(레코드) 공공누리 유형 판정: 저장값 우선, 없으면 유형분류(HMC) 결과로 초기 제시
+  const hmcPred = row.model_info?.type?.predicted_type
+  const seedType = (() => {
+    const saved = contract?.resolved_type
+    if (typeof saved === "string" && saved) return saved
+    if (typeof hmcPred === "string") {
+      const m = hmcPred.match(/([0-4])/)
+      if (m) return `KOGL-${m[1]}`
+    }
+    return null
+  })()
+  const contractJudgment = contract ? {
+    resolved_type: seedType,
+    ai_type_applied: (contract.ai_type_applied ?? null) as boolean | null,
+    type_reason: (contract.type_reason ?? null) as string | null,
+    resolved_type_auto: (contract.resolved_type_auto ?? null) as string | null,
+    ai_type_auto: (contract.ai_type_auto ?? null) as boolean | null,
+  } : null
+
+  async function saveContractJudgment(resolvedType: string | null, ai: boolean | null, reason?: string) {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    const base = (contract ?? {}) as Record<string, unknown>
+    const oldType = (base.resolved_type ?? seedType ?? null) as unknown
+    const oldAi = (base.ai_type_applied ?? null) as unknown
+    const next: Record<string, unknown> = { ...base, resolved_type: resolvedType, ai_type_applied: ai }
+    if (next.resolved_type_auto == null && next.ai_type_auto == null) {
+      next.resolved_type_auto = oldType
+      next.ai_type_auto = oldAi
+    }
+    const at = new Date().toISOString()
+    const by = user?.id ?? null
+    const prevLog = Array.isArray(next.edit_log) ? (next.edit_log as unknown[]) : []
+    const entries: Record<string, unknown>[] = []
+    if (oldType !== resolvedType) entries.push({ field: "resolved_type", from: oldType, to: resolvedType, by, at, reason: reason ?? null })
+    if (oldAi !== ai) entries.push({ field: "ai_type_applied", from: oldAi, to: ai, by, at, reason: reason ?? null })
+    next.edit_log = [...prevLog, ...entries]
+    const { error } = await supabase
+      .from("rights_checks")
+      .update({ contract_metadata: { contract: next, works } })
+      .eq("id", id)
+    if (error) throw new Error(error.message)
+  }
+
+  const isOwner = !!currentUserId && row.user_id === currentUserId
+
   if (row.status !== "completed") {
     return (
       <AppLayout>
@@ -159,8 +205,10 @@ export default function CombinedDetailPage() {
             : <p className="text-sm text-gray-400">추출된 계약서 메타데이터가 없습니다.</p>
         }
         works={works}
-        onSaveWork={currentUserId && row.user_id === currentUserId ? saveWork : undefined}
-        editNote={currentUserId && row.user_id === currentUserId ? undefined : "본인 검사만 수정 가능합니다"}
+        onSaveWork={isOwner ? saveWork : undefined}
+        editNote={isOwner ? undefined : "본인 검사만 수정 가능합니다"}
+        contractJudgment={contractJudgment}
+        onSaveContractJudgment={isOwner ? saveContractJudgment : undefined}
       />
     </AppLayout>
   )

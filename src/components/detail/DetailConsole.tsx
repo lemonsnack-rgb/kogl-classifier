@@ -154,12 +154,25 @@ export interface DetailConsoleProps {
   workActions?: (work: Record<string, unknown>, index: number) => React.ReactNode
   /** onSaveWork 미제공(수정 불가) 시 헤더에 노출할 안내 문구 */
   editNote?: string
+  /** 계약서(레코드) 공공누리 유형·AI 판정. 제공 시 계약서 뷰에 판정 배너 표시 */
+  contractJudgment?: {
+    resolved_type?: string | null
+    ai_type_applied?: boolean | null
+    type_reason?: string | null
+    type_low_confidence?: boolean | null
+    resolved_type_auto?: string | null
+    ai_type_auto?: boolean | null
+  } | null
+  /** 계약서 판정 저장 콜백. 미제공 시 계약서 판정 편집 불가(배지만 표시) */
+  onSaveContractJudgment?: (resolvedType: string | null, ai: boolean | null, reason?: string) => Promise<void>
 }
 
 export default function DetailConsole({
   title, backHref, backLabel, leftTop, contractMetaNode, works, onSaveWork, worksFooter, workActions, editNote,
+  contractJudgment, onSaveContractJudgment,
 }: DetailConsoleProps) {
   const [localWorks, setLocalWorks] = useState(works)
+  const [localCJ, setLocalCJ] = useState<Record<string, unknown> | null>(contractJudgment ?? null)
   const [sel, setSel] = useState<"contract" | number | null>(null)
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState<Record<string, string>>({})
@@ -176,12 +189,13 @@ export default function DetailConsole({
   function selectWork(i: number) { setSel(i); setEditing(false); setSavedMsg(false) }
 
   function startEdit() {
-    if (!w) return
+    const src = sel === "contract" ? (localCJ ?? {}) : w
+    if (!src) return
     const f: Record<string, string> = {}
-    for (const k of WORK_FIELD_KEYS) f[k] = toStr(w[k])
+    if (sel !== "contract" && w) for (const k of WORK_FIELD_KEYS) f[k] = toStr(w[k])
     setForm(f)
-    setTypeForm(isKoglType(w.resolved_type) ? w.resolved_type : "")
-    setAiForm(aiToStatus(w.ai_type_applied))
+    setTypeForm(isKoglType(src.resolved_type) ? src.resolved_type : "")
+    setAiForm(aiToStatus(src.ai_type_applied))
     setReasonForm("")
     setEditing(true)
     setSavedMsg(false)
@@ -189,20 +203,39 @@ export default function DetailConsole({
   function cancelEdit() { setEditing(false); setForm({}) }
 
   async function save() {
-    if (!isWork || !w || !onSaveWork) return
-    const patch: Record<string, unknown> = {}
-    for (const k of WORK_FIELD_KEYS) {
-      const val = (form[k] ?? "").trim()
-      if (k === "keywords") patch[k] = val ? val.split(",").map((s) => s.trim()).filter(Boolean) : null
-      else patch[k] = val || null
-    }
-    patch.resolved_type = typeForm || null
-    patch.ai_type_applied = typeForm === "KOGL-0" ? null : statusToAi(aiForm)
-    const nextWorks = localWorks.map((x, i) => (i === sel ? { ...x, ...patch } : x))
     setSaving(true)
     try {
-      await onSaveWork(sel, patch, nextWorks, reasonForm.trim() || undefined)
-      setLocalWorks(nextWorks)
+      const rt = typeForm || null
+      const ai = typeForm === "KOGL-0" ? null : statusToAi(aiForm)
+      const reason = reasonForm.trim() || undefined
+      if (sel === "contract") {
+        if (!onSaveContractJudgment) return
+        await onSaveContractJudgment(rt, ai, reason)
+        // 로컬 반영 + 최초 자동판정 스냅샷
+        setLocalCJ((prev) => {
+          const p = prev ?? {}
+          const hadAuto = (p.resolved_type_auto ?? null) != null || (p.ai_type_auto ?? null) != null
+          return {
+            ...p,
+            resolved_type: rt,
+            ai_type_applied: ai,
+            ...(hadAuto ? {} : { resolved_type_auto: p.resolved_type ?? null, ai_type_auto: p.ai_type_applied ?? null }),
+          }
+        })
+      } else {
+        if (!isWork || !w || !onSaveWork) return
+        const patch: Record<string, unknown> = {}
+        for (const k of WORK_FIELD_KEYS) {
+          const val = (form[k] ?? "").trim()
+          if (k === "keywords") patch[k] = val ? val.split(",").map((s) => s.trim()).filter(Boolean) : null
+          else patch[k] = val || null
+        }
+        patch.resolved_type = rt
+        patch.ai_type_applied = ai
+        const nextWorks = localWorks.map((x, i) => (i === sel ? { ...x, ...patch } : x))
+        await onSaveWork(sel, patch, nextWorks, reason)
+        setLocalWorks(nextWorks)
+      }
       setEditing(false)
       setSavedMsg(true)
       setTimeout(() => setSavedMsg(false), 3000)
@@ -211,6 +244,73 @@ export default function DetailConsole({
     } finally {
       setSaving(false)
     }
+  }
+
+  // 판정 배너(읽기 배지)
+  function judgmentRead(item: Record<string, unknown>) {
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <TypeAiBadges resolvedType={item.resolved_type} ai={item.ai_type_applied as boolean | null | undefined} />
+        {item.type_low_confidence === true && <span className="text-xs text-amber-600 font-medium">⚠ 자동 추정 · 확인 권장</span>}
+        {isHumanEdited(item) && (
+          <span className="text-xs text-orange-600 font-medium" title={autoSummary(item)}>· 사람 수정됨(자동판정과 다름)</span>
+        )}
+        {typeof item.type_reason === "string" && item.type_reason && <span className="text-xs text-gray-500">· {item.type_reason}</span>}
+      </div>
+    )
+  }
+  // 판정 배너(수정 폼) — typeForm/aiForm/reasonForm 공유
+  function judgmentEditForm() {
+    return (
+      <div className="space-y-2.5">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-gray-600 w-[92px] flex-shrink-0">공공누리 유형</span>
+          <select value={typeForm} onChange={(e) => setTypeForm(e.target.value)}
+            className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+            <option value="">미판정</option>
+            {KOGL_TYPE_ORDER.map((t) => (
+              <option key={t} value={t}>{KOGL_TYPES[t].label} · {KOGL_TYPES[t].description}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`text-xs font-semibold w-[92px] flex-shrink-0 ${typeForm === "KOGL-0" ? "text-gray-300" : "text-gray-600"}`}>AI 학습 활용</span>
+          <select value={typeForm === "KOGL-0" ? "unknown" : aiForm} disabled={typeForm === "KOGL-0"}
+            onChange={(e) => setAiForm(e.target.value as AiStatus)}
+            className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm disabled:bg-gray-100 disabled:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500">
+            <option value="usable">활용 가능</option>
+            <option value="not_usable">활용 불가</option>
+            <option value="unknown">판단 불가</option>
+          </select>
+          {typeForm === "KOGL-0" && <span className="text-xs text-gray-400 flex-shrink-0">제0유형은 해당 없음</span>}
+        </div>
+        <div className="flex items-start gap-2">
+          <span className="text-xs font-semibold text-gray-600 w-[92px] flex-shrink-0 pt-1.5">수정 사유</span>
+          <input value={reasonForm} onChange={(e) => setReasonForm(e.target.value)}
+            placeholder="예: 계약서 제6조에 상업적 이용 명시 (선택 · 학습 데이터로 활용)"
+            className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+        </div>
+      </div>
+    )
+  }
+  function editButtons() {
+    return !editing ? (
+      <button onClick={startEdit}
+        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-primary-600 border border-primary-200 rounded-md hover:bg-primary-50 transition-colors">
+        <Pencil className="w-3 h-3" /> 수정
+      </button>
+    ) : (
+      <>
+        <button onClick={save} disabled={saving}
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:bg-primary-300 transition-colors">
+          <Save className="w-3 h-3" /> {saving ? "저장중…" : "저장"}
+        </button>
+        <button onClick={cancelEdit} disabled={saving}
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors">
+          <X className="w-3 h-3" /> 취소
+        </button>
+      </>
+    )
   }
 
   return (
@@ -284,7 +384,20 @@ export default function DetailConsole({
             </div>
           ) : sel === "contract" ? (
             <div>
-              <h3 className="text-[15px] font-bold text-gray-800 tracking-tight mb-4">계약서 추출 메타데이터</h3>
+              <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
+                <h3 className="text-[15px] font-bold text-gray-800 tracking-tight">계약서 판정 · 메타데이터</h3>
+                <div className="flex items-center gap-2">
+                  {savedMsg && <span className="text-xs text-green-600 font-medium">✓ 저장됨</span>}
+                  {onSaveContractJudgment ? editButtons() : (editNote && <span className="text-xs text-gray-400 italic">{editNote}</span>)}
+                </div>
+              </div>
+              {(localCJ || editing) && (
+                <div className="mb-4 bg-white border border-gray-200 rounded-lg border-l-4 border-l-purple-500 p-4">
+                  <div className="text-xs font-bold text-gray-500 mb-2">공공누리 유형 판정 (계약서)</div>
+                  {editing ? judgmentEditForm() : judgmentRead(localCJ ?? {})}
+                </div>
+              )}
+              <h4 className="text-sm font-semibold text-gray-700 mb-2">계약서 추출 메타데이터</h4>
               {contractMetaNode}
             </div>
           ) : w ? (
@@ -297,72 +410,14 @@ export default function DetailConsole({
                 <div className="flex items-center gap-2">
                   {savedMsg && <span className="text-xs text-green-600 font-medium">✓ 저장됨</span>}
                   {!editing && workActions && workActions(w, sel as number)}
-                  {onSaveWork ? (!editing ? (
-                    <button onClick={startEdit}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-primary-600 border border-primary-200 rounded-md hover:bg-primary-50 transition-colors">
-                      <Pencil className="w-3 h-3" /> 수정
-                    </button>
-                  ) : (
-                    <>
-                      <button onClick={save} disabled={saving}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:bg-primary-300 transition-colors">
-                        <Save className="w-3 h-3" /> {saving ? "저장중…" : "저장"}
-                      </button>
-                      <button onClick={cancelEdit} disabled={saving}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors">
-                        <X className="w-3 h-3" /> 취소
-                      </button>
-                    </>
-                  )) : (editNote && <span className="text-xs text-gray-400 italic">{editNote}</span>)}
+                  {onSaveWork ? editButtons() : (editNote && <span className="text-xs text-gray-400 italic">{editNote}</span>)}
                 </div>
               </div>
 
               {/* 판정: 유형 + AI 병기(수정 시 드롭다운) */}
               <div className="mb-4 bg-white border border-gray-200 rounded-lg border-l-4 border-l-purple-500 p-4">
                 <div className="text-xs font-bold text-gray-500 mb-2">공공누리 유형 판정</div>
-                {editing ? (
-                  <div className="space-y-2.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-gray-600 w-[92px] flex-shrink-0">공공누리 유형</span>
-                      <select value={typeForm} onChange={(e) => setTypeForm(e.target.value)}
-                        className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
-                        <option value="">미판정</option>
-                        {KOGL_TYPE_ORDER.map((t) => (
-                          <option key={t} value={t}>{KOGL_TYPES[t].label} · {KOGL_TYPES[t].description}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs font-semibold w-[92px] flex-shrink-0 ${typeForm === "KOGL-0" ? "text-gray-300" : "text-gray-600"}`}>AI 학습 활용</span>
-                      <select value={typeForm === "KOGL-0" ? "unknown" : aiForm} disabled={typeForm === "KOGL-0"}
-                        onChange={(e) => setAiForm(e.target.value as AiStatus)}
-                        className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm disabled:bg-gray-100 disabled:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500">
-                        <option value="usable">활용 가능</option>
-                        <option value="not_usable">활용 불가</option>
-                        <option value="unknown">판단 불가</option>
-                      </select>
-                      {typeForm === "KOGL-0" && <span className="text-xs text-gray-400 flex-shrink-0">제0유형은 해당 없음</span>}
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-xs font-semibold text-gray-600 w-[92px] flex-shrink-0 pt-1.5">수정 사유</span>
-                      <input
-                        value={reasonForm}
-                        onChange={(e) => setReasonForm(e.target.value)}
-                        placeholder="예: 계약서 제6조에 상업적 이용 명시 (선택 · 학습 데이터로 활용)"
-                        className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <TypeAiBadges resolvedType={w.resolved_type} ai={w.ai_type_applied as boolean | null | undefined} />
-                    {w.type_low_confidence === true && <span className="text-xs text-amber-600 font-medium">⚠ 자동 추정 · 확인 권장</span>}
-                    {isHumanEdited(w) && (
-                      <span className="text-xs text-orange-600 font-medium" title={autoSummary(w)}>· 사람 수정됨(자동판정과 다름)</span>
-                    )}
-                    {typeof w.type_reason === "string" && w.type_reason && <span className="text-xs text-gray-500">· {w.type_reason}</span>}
-                  </div>
-                )}
+                {editing ? judgmentEditForm() : judgmentRead(w)}
               </div>
 
               {/* 20항목 3범주 */}

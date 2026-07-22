@@ -377,6 +377,8 @@ const HIDDEN_META_KEYS = new Set([
   // 데이터셋/게시판 스크랩 원본 잡음(계약서 메타로 무의미)
   "board_name", "board_path", "seq_number", "view_count", "photo_count", "video_count",
   "site_name", "url", "attachment", "category",
+  // 계약서 판정은 별도 배지로 표시 → 메타 표에서는 원문 유형/판정 키 숨김
+  "kogl_type", "resolved_type", "ai_type_applied", "resolved_type_auto", "ai_type_auto", "edit_log", "type_reason",
 ])
 function metaLabel(k: string): string { return META_LABELS[k] ?? k }
 function metaVisible(k: string): boolean { return !HIDDEN_META_KEYS.has(k) }

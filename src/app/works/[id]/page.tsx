@@ -420,6 +420,40 @@ export default function WorkDetailPage() {
     )
   }
 
+  const isOwner = !!currentUserId && contract.user_id === currentUserId
+
+  // 계약서(레코드) 판정: resolved_type(저장값) 우선, 없으면 gongnuri_type(HMC)로 초기 제시
+  const crec = contract as unknown as Record<string, unknown>
+  const contractJudgment = {
+    resolved_type: (crec.resolved_type as string | null) ?? (contract.gongnuri_type ?? null),
+    ai_type_applied: (crec.ai_type_applied ?? null) as boolean | null,
+    resolved_type_auto: (crec.resolved_type_auto ?? null) as string | null,
+    ai_type_auto: (crec.ai_type_auto ?? null) as boolean | null,
+  }
+
+  async function saveContractJudgment(resolvedType: string | null, ai: boolean | null, reason?: string) {
+    if (!contract) return
+    const rec = contract as unknown as Record<string, unknown>
+    const oldType = (rec.resolved_type as string | null) ?? (contract.gongnuri_type ?? null)
+    const oldAi = (rec.ai_type_applied ?? null) as boolean | null
+    const payload: Record<string, unknown> = { resolved_type: resolvedType, ai_type_applied: ai }
+    const hasAuto = rec.resolved_type_auto != null || rec.ai_type_auto != null
+    if (!hasAuto) { payload.resolved_type_auto = oldType; payload.ai_type_auto = oldAi }
+    if (isSupabaseConfigured()) {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      const { error } = await supabase.from("contracts").update(payload).eq("id", contract.id)
+      if (error) throw new Error(error.message)
+      if (user) {
+        const logs: Record<string, unknown>[] = []
+        if (oldType !== resolvedType) logs.push({ target_type: "contract", target_id: contract.id, field_name: "resolved_type", old_value: oldType, new_value: resolvedType, edited_by: user.id, reason: reason ?? null })
+        if (oldAi !== ai) logs.push({ target_type: "contract", target_id: contract.id, field_name: "ai_type_applied", old_value: String(oldAi), new_value: String(ai), edited_by: user.id, reason: reason ?? null })
+        if (logs.length > 0) await supabase.from("edit_history").insert(logs)
+      }
+    }
+    setContract((prev) => (prev ? ({ ...prev, ...payload } as typeof prev) : prev))
+  }
+
   return (
     <AppLayout>
       <DetailConsole
@@ -448,10 +482,8 @@ export default function WorkDetailPage() {
             <div className="border-t border-gray-200 my-5" />
             {/* 공공누리 자동분류 정보 */}
             <div className="flex items-center justify-between mb-3">
-              <SectionDivider title="공공누리 자동분류 정보" />
-              {!editingType && contract.gongnuri_type && currentUserId && contract.user_id === currentUserId && (
-                <button onClick={startEditType} className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-primary-600 border border-primary-200 rounded hover:bg-primary-50 transition-colors"><Pencil className="w-3 h-3" /> 수정</button>
-              )}
+              <SectionDivider title="공공누리 자동분류 정보 (유형분류 모델)" />
+              <span className="text-xs text-gray-400">확정·수정은 우측 [계약서 추출 메타데이터] → 판정에서</span>
             </div>
             {editingType ? (
               <div className="mb-6 space-y-3">
@@ -517,8 +549,10 @@ export default function WorkDetailPage() {
           <p className="text-sm text-gray-400">추출된 계약서 메타데이터가 없습니다.</p>
         )}
         works={consoleWorks}
-        onSaveWork={currentUserId && contract.user_id === currentUserId ? saveWork : undefined}
-        editNote={currentUserId && contract.user_id === currentUserId ? undefined : "본인 검사만 수정 가능합니다"}
+        onSaveWork={isOwner ? saveWork : undefined}
+        editNote={isOwner ? undefined : "본인 검사만 수정 가능합니다"}
+        contractJudgment={contractJudgment}
+        onSaveContractJudgment={isOwner ? saveContractJudgment : undefined}
         worksFooter={
           <button onClick={() => downloadCsv(works, contract.contract_filename)} className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
             <Download className="w-4 h-4" /> 엑셀 다운로드
